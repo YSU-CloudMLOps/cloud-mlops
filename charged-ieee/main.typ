@@ -14,25 +14,25 @@
   ],
   authors: (
     (
-      name: "이인수",
+      name: "이인수 (weird14446)",
       department: [컴퓨터 소프트웨어과],
       organization: [연성대학교],
       email: "weird14446@yeonsung.ac.kr"
     ),
     (
-      name: "유승민",
+      name: "유승민 (uysmn)",
       department: [컴퓨터 소프트웨어과],
       organization: [연성대학교],
       email: "ysmin0530@gmail.com"
     ),
     (
-      name: "ksh00500",
+      name: "김시호 (ksh00500)",
       department: [컴퓨터 소프트웨어과],
       organization: [연성대학교],
-      email: "ksh00500@github.com"
+      email: "ksh_05@yeonsung.ac.kr"
     ),
     (
-      name: "hongseongug812-ui",
+      name: "홍성욱 (hongseongug812-ui)",
       department: [컴퓨터 소프트웨어과],
       organization: [연성대학교],
       email: "hongseongug812-ui@github.com"
