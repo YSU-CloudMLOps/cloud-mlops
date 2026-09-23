@@ -1,7 +1,13 @@
 #import "@preview/charged-ieee:0.1.4": ieee
 
+#show text: set text(font: ("Nimbus Roman", "Pretendard"))
+#show figure.where(kind: table): set text(size: 8pt)
+
 #show: ieee.with(
-  title: [물리 법칙 기반 피처 엔지니어링과 소프트 보팅 앙상블을 활용한 산업용 예지보전 MLOps 파이프라인 연구],
+  title: [
+    #text(18pt)[물리 법칙 기반 피처 엔지니어링과 소프트 보팅 앙상블을 활용한] \
+    #text(18pt)[산업용 예지보전 MLOps 파이프라인 연구]
+  ],
   abstract: [
     스마트 제조 환경에서 설비의 비계획 정지(Unplanned Downtime)를 예방하기 위한 상태 기반 예지보전(Predictive Maintenance, PdM)은 핵심 과제이다. 그러나 실제 산업 센서 데이터는 정상 데이터에 극도로 편향된 클래스 불균형(Class Imbalance)과 복합 물리 법칙에 기인한 비선형 거동으로 인해 고장 탐지의 정밀도와 재현율 간 균형을 달성하기 어렵다. 본 연구는 10,000건의 밀링(Milling) 공정 센서 레코드를 포함하는 AI4I 2020 데이터셋을 바탕으로, 심층 탐색적 데이터 분석(EDA), 7대 전처리 정책 수립, 머신러닝 벤치마크, 도메인 물리 경계 기반 피처 엔지니어링, 그리고 소프트 보팅 앙상블(Soft Voting Ensemble) 모델을 포괄하는 엔드투엔드 MLOps 파이프라인을 구축하였다.
     오차 분석 결과 고장 미탐(FN)의 75%가 공구 마모 고장(TWF)에 집중됨을 규명하고, 열역학 및 회전 동력학적 임계 조건을 반영한 7개 신규 도메인 특성을 주입하였다. 이를 바탕으로 구축된 LightGBM, XGBoost, Random Forest 기반의 소프트 보팅 앙상블 모델은 2,000건의 미학습 Holdout Test 세트에서 Precision 96.49%, Recall 80.88%, F1-Score 0.8800, PR-AUC 0.8974를 달성하였으며, 베이스라인 대비 오탐(False Positive)을 12건에서 단 2건으로 83.3% 감축시켰다. 본 연구의 결과물과 가중치는 MLOps 서빙 규격으로 직렬화되어 실제 제조 라인에 즉시 배포 가능하다.
@@ -9,23 +15,20 @@
   authors: (
     (
       name: "이인수",
-      department: [컴퓨터공학과],
-      organization: [YSU Cloud MLOps 연구팀],
-      location: [대한민국],
-      email: "81010325+weird14446@users.noreply.github.com"
+      department: [컴퓨터 소프트웨어과],
+      organization: [연성대학교],
+      email: "weird14446@yeonsung.ac.kr"
     ),
     (
       name: "유승민",
-      department: [컴퓨터공학과],
-      organization: [YSU Cloud MLOps 연구팀],
-      location: [대한민국],
+      department: [컴퓨터 소프트웨어과],
+      organization: [연성대학교],
       email: "ysmin0530@gmail.com"
     ),
     (
       name: "ksh00500",
-      department: [컴퓨터공학과],
-      organization: [YSU Cloud MLOps 연구팀],
-      location: [대한민국],
+      department: [컴퓨터 소프트웨어과],
+      organization: [연성대학교],
       email: "ksh00500@github.com"
     ),
   ),
@@ -42,8 +45,6 @@
   figure-supplement: [그림],
 )
 
-#set text(font: ("Nimbus Roman", "NanumGothic"), size: 10pt)
-#show figure.where(kind: table): set text(size: 8pt)
 
 = 서론 (Introduction)
 
