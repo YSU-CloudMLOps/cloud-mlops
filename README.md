@@ -9,5 +9,6 @@
 - **[고도화 앙상블 및 임계값 최적화 보고서 (notes/advanced_ensemble_evaluation.md)](notes/advanced_ensemble_evaluation.md)**: 도메인 물리 경계 피처 적용, 소프트 보팅 앙상블 및 F1 0.88 달성 평가 결과
 - **[모델 가중치 및 직렬화 디렉토리 (models/)](models/)**: LightGBM, XGBoost, Random Forest, 소프트 보팅 앙상블 파이프라인 및 메타데이터
 - **[시각화 차트 디렉토리 (figures/)](figures/)**: EDA 및 모델 평가 차트 (ROC 곡선, PR 곡선, 혼동 행렬, 임계값 최적화 곡선, 피처 중요도)
+- **[IEEE 학술 논문 보고서 (charged-ieee/)](charged-ieee/main.pdf)**: AI4I 2020 예지보전 MLOps 파이프라인 학술 연구 논문 ([Typst 소스: main.typ](charged-ieee/main.typ), [PDF 전문: main.pdf](charged-ieee/main.pdf))
 
 
