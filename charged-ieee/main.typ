@@ -31,6 +31,12 @@
       organization: [연성대학교],
       email: "ksh00500@github.com"
     ),
+    (
+      name: "hongseongug812-ui",
+      department: [컴퓨터 소프트웨어과],
+      organization: [연성대학교],
+      email: "hongseongug812-ui@github.com"
+    ),
   ),
   index-terms: (
     "Predictive Maintenance",
