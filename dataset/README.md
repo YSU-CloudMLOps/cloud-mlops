@@ -16,6 +16,12 @@
    - **[`robust_scaler.joblib`](robust_scaler.joblib)**: Train 데이터에 fit된 scikit-learn RobustScaler 객체
    - *실행 스크립트*: [`scripts/preprocess_scaled.py`](../scripts/preprocess_scaled.py)
 
+3. **물리 경계 도메인 피처 고도화 데이터셋 (Advanced Features)**
+   - **[`train_advanced.csv`](train_advanced.csv)**: 17개 특성(기본 10종 + 물리 경계 지표 7종) 포함 학습 데이터 (8,000행 × 23열)
+   - **[`test_advanced.csv`](test_advanced.csv)**: 17개 특성 포함 평가 데이터 (2,000행 × 23열)
+   - *추가된 특성*: `hdf_risk`, `pwf_risk`, `osf_risk`, `twf_zone`, `physical_risk_sum`, `temp_ratio`, `torque_rpm_ratio`
+   - *실행 스크립트*: [`scripts/preprocess_advanced.py`](../scripts/preprocess_advanced.py)
+
 ---
 
 ## 1. 데이터셋 개요 (Overview)
