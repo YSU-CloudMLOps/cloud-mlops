@@ -3,6 +3,36 @@
 
 ## FastAPI 추론 API
 
+AI4I 2020 설비 고장 예측을 위한 프로덕션 레벨의 FastAPI 서빙 애플리케이션입니다. 계층형 아키텍처(Layered Architecture)로 리팩토링되어 관심사 분리(Separation of Concerns)와 확장성을 제공합니다.
+
+### 아키텍처 구조
+
+```text
+API/
+├── __init__.py              # 패키지 초기화 및 하위 호환성 지원
+├── api.py                   # 메인 진입점(Entrypoint), FastAPI app 생성 및 lifespan 관리
+├── config.py                # 환경 변수 및 설정 관리 (모델 경로, 임계값, 포트 등)
+├── schemas.py               # Pydantic 데이터 검증 스키마 (SensorInput, Prediction, HealthResponse)
+├── routers/                 # API 엔드포인트 라우터
+│   ├── __init__.py
+│   ├── health.py            # GET /health (서비스 및 모델 상태 점검)
+│   └── predict.py           # POST /predict (단건 센서 추론)
+├── services/                # 비즈니스 로직 계층
+│   ├── __init__.py
+│   ├── feature_service.py   # 센서 입력 기반 도메인 파생 피처 엔지니어링 (온도차, 전력, 스트레인 등)
+│   └── model_service.py     # LightGBM 모델 로더 및 추론 엔진 (ModelService)
+├── requirements-api.txt     # 서빙 의존성 목록
+└── tests/                   # 단위 및 통합 테스트 스위트
+    ├── __init__.py
+    ├── test_api.py          # 기존 엔드투엔드 API 검증
+    ├── test_config.py       # 환경 설정 단위 테스트
+    ├── test_features.py     # 파생 피처 계산 단위 테스트
+    ├── test_health.py       # 헬스체크 엔드포인트 테스트
+    └── test_model_service.py# 모델 로더 및 추론 단위 테스트
+```
+
+### 실행 방법
+
 저장소 루트에서 실행합니다 (Python 3.10 이상).
 
 ```bash
@@ -14,7 +44,7 @@ python -m pip install -r API/requirements-api.txt
 python -m uvicorn API.api:app --host 127.0.0.1 --port 8000
 ```
 
-`http://127.0.0.1:8000/docs`에서 직접 테스트할 수 있습니다.
+`http://127.0.0.1:8000/docs`에서 대화형 Swagger UI로 직접 테스트할 수 있습니다.
 `POST /predict`는 기본 센서 정보 6개를 받습니다.
 
 ```json
@@ -35,20 +65,17 @@ $body = @{ type = 'L'; air_temperature_k = 300; process_temperature_k = 310; rot
 Invoke-RestMethod -Uri http://127.0.0.1:8000/predict -Method Post -ContentType 'application/json' -Body $body
 ```
 
-응답은 `machine_failure` (0: 정상, 1: 고장), `failure_probability`
-(0~1의 모델 예측 점수) 두 필드만 포함합니다.
-서버에서 학습 코드와 동일한 파생 피처를 생성하며, 시작할 때
-`models/lightgbm_model.txt`를 한 번 로드합니다. 기본 LightGBM 모델을
-사용하며, 고장 판정 기준은 서버 내부에서 0.5로 적용합니다.
+응답은 `machine_failure` (0: 정상, 1: 고장), `failure_probability` (0~1의 모델 예측 점수) 두 필드를 포함합니다.
+서버에서 학습 코드와 동일한 물리적 파생 피처를 자동 생성하며, 시작할 때 `models/lightgbm_model.txt`를 한 번 로드합니다.
+환경 변수 `PREDICT_THRESHOLD`(또는 `THRESHOLD`)를 통해 판정 임계값을 유연하게 변경할 수 있으며(기본값: 0.5), `PREDICT_MODEL_PATH`로 모델 파일 경로를 재지정할 수 있습니다.
 잘못된 등급, 누락된 필드, 음수 마모 시간 등은 HTTP 422를 반환합니다.
-`GET /health`는 서버 상태를 반환합니다. 현재 센서 상태의 고장 분류이며,
-미래 고장 시점을 예측하는 API는 아닙니다.
+`GET /health`는 서버 상태 및 모델 준비 상태를 반환합니다.
 
-검증 실행:
+### 테스트 실행
 
 ```bash
 python -m pip install httpx
-python -m unittest discover -s API/tests
+PYTHONPATH=. python -m unittest discover -s API/tests
 ```
 
 ## 프로젝트 구성
