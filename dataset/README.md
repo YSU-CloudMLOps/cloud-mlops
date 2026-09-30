@@ -1,6 +1,26 @@
 # AI4I 2020 Predictive Maintenance Dataset 설명서
 
-이 문서는 [`ai4i2020.csv`](file:///Users/yiinsu/Library/CloudStorage/GoogleDrive-ii3289857@gmail.com/My%20Drive/Github/cloud-mlops/dataset/ai4i2020.csv) 데이터셋의 구성, 컬럼 정의, 기초 통계 및 MLOps 관점에서의 분석 포인트를 정리한 문서입니다.
+이 문서는 원본 데이터셋 [`ai4i2020.csv`](ai4i2020.csv) 및 전처리 정책에 따라 생성된 데이터셋([`ai4i2020_preprocessed.csv`](ai4i2020_preprocessed.csv), [`train.csv`](train.csv), [`test.csv`](test.csv))의 구성, 컬럼 정의, 기초 통계 및 MLOps 관점에서의 분석 포인트를 정리한 문서입니다.
+
+### 전처리 완료 데이터 파일 안내
+1. **트리 계열 모델용 (원본 물리 단위 보존)**
+   - **[`ai4i2020.csv`](ai4i2020.csv)**: 원본 원시 데이터셋 (10,000행 × 14열)
+   - **[`ai4i2020_preprocessed.csv`](ai4i2020_preprocessed.csv)**: 전처리 완료 전체 데이터셋 (10,000행 × 16열: 피처 10개 + 타겟 6개)
+   - **[`train.csv`](train.csv)**: 층화 추출(Stratified Split 80%) 학습 데이터 (8,000행 × 16열, 고장률 3.39%)
+   - **[`test.csv`](test.csv)**: 층화 추출(Stratified Split 20%) 평가 데이터 (2,000행 × 16열, 고장률 3.40%)
+   - *실행 스크립트*: [`scripts/preprocess.py`](../scripts/preprocess.py)
+
+2. **신경망(NN) 및 선형 모델용 (RobustScaler + One-Hot Encoding)**
+   - **[`train_scaled.csv`](train_scaled.csv)**: Train 기준 RobustScaler 및 One-Hot 인코딩 적용 학습 데이터 (8,000행 × 18열)
+   - **[`test_scaled.csv`](test_scaled.csv)**: Train 기준 RobustScaler로 변환된 평가 데이터 (2,000행 × 18열)
+   - **[`robust_scaler.joblib`](robust_scaler.joblib)**: Train 데이터에 fit된 scikit-learn RobustScaler 객체
+   - *실행 스크립트*: [`scripts/preprocess_scaled.py`](../scripts/preprocess_scaled.py)
+
+3. **물리 경계 도메인 피처 고도화 데이터셋 (Advanced Features)**
+   - **[`train_advanced.csv`](train_advanced.csv)**: 17개 특성(기본 10종 + 물리 경계 지표 7종) 포함 학습 데이터 (8,000행 × 23열)
+   - **[`test_advanced.csv`](test_advanced.csv)**: 17개 특성 포함 평가 데이터 (2,000행 × 23열)
+   - *추가된 특성*: `hdf_risk`, `pwf_risk`, `osf_risk`, `twf_zone`, `physical_risk_sum`, `temp_ratio`, `torque_rpm_ratio`
+   - *실행 스크립트*: [`scripts/preprocess_advanced.py`](../scripts/preprocess_advanced.py)
 
 ---
 
