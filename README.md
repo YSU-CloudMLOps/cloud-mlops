@@ -10,8 +10,8 @@ python -m venv .venv
 # Windows PowerShell
 .venv\Scripts\Activate.ps1
 # macOS/Linux: source .venv/bin/activate
-python -m pip install -r requirements-api.txt
-python -m uvicorn api:app --host 127.0.0.1 --port 8000
+python -m pip install -r API/requirements-api.txt
+python -m uvicorn API.api:app --host 127.0.0.1 --port 8000
 ```
 
 `http://127.0.0.1:8000/docs`에서 직접 테스트할 수 있습니다.
@@ -48,7 +48,7 @@ Invoke-RestMethod -Uri http://127.0.0.1:8000/predict -Method Post -ContentType '
 
 ```bash
 python -m pip install httpx
-python -m unittest discover -s tests
+python -m unittest discover -s API/tests
 ```
 
 ## 프로젝트 구성

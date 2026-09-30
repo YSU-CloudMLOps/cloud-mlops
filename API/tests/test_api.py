@@ -5,12 +5,12 @@ import lightgbm as lgb
 import pandas as pd
 from fastapi.testclient import TestClient
 
-from api import MODEL_PATH, app
+from API.api import MODEL_PATH, app
 
 
 class PredictionTests(unittest.TestCase):
     def test_raw_inputs_match_preprocessed_model_predictions(self):
-        root = Path(__file__).resolve().parents[1]
+        root = Path(__file__).resolve().parents[2]
         raw = pd.read_csv(root / "dataset" / "ai4i2020.csv")
         prepared = pd.read_csv(root / "dataset" / "ai4i2020_preprocessed.csv")
         model = lgb.Booster(model_str=MODEL_PATH.read_text(encoding="utf-8"))

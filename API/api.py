@@ -10,7 +10,7 @@ import pandas as pd
 from fastapi import FastAPI, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-MODEL_PATH = Path(__file__).resolve().parent / "models" / "lightgbm_model.txt"
+MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "lightgbm_model.txt"
 THRESHOLD = 0.5
 
 
