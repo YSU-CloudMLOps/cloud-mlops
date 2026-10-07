@@ -2,7 +2,7 @@
 
 본 저장소는 UCI Machine Learning Repository의 **AI4I 2020 Predictive Maintenance 데이터셋**을 기반으로 구축된 **엔드투엔드 설비 예지보전(Predictive Maintenance, PdM) MLOps 파이프라인**입니다.
 
-데이터 탐색(EDA), 도메인 물리 기반 전처리, 모델 학습 및 Optuna 하이퍼파라미터 튜닝, 계층형 아키텍처 기반의 **FastAPI 추론 서비스**, 비전문가를 위한 **React 19 + Vite + TypeScript 웹 대시보드**, 그리고 AWS EC2 즉시 배포를 위한 **Docker Compose 오케스트레이션 및 `.env` 포트 제어 시스템**까지 프로덕션 수준으로 구현되어 있습니다.
+데이터 탐색(EDA), 도메인 물리 기반 전처리, 모델 학습 및 Optuna 하이퍼파라미터 튜닝, 계층형 아키텍처 기반의 **FastAPI 추론 서버**, 비전문가를 위한 **React 19 + Vite + TypeScript 웹 대시보드**, 그리고 AWS EC2 즉시 배포를 위한 **Docker Compose 멀티 컨테이너 오케스트레이션 및 `.env` 포트 제어 시스템**까지 프로덕션 수준으로 구현되어 있습니다.
 
 ---
 
@@ -11,9 +11,10 @@
 2. [데이터 전처리 정책 및 피처 엔지니어링 (Preprocessing)](#2-데이터-전처리-정책-및-피처-엔지니어링-preprocessing)
 3. [모델 학습 및 하이퍼파라미터 튜닝 방법 (Training & Tuning)](#3-모델-학습-및-하이퍼파라미터-튜닝-방법-training--tuning)
 4. [모델 성능 평가 및 벤치마크 (Evaluation)](#4-모델-성능-평가-및-벤치마크-evaluation)
-5. [시스템 아키텍처 및 웹 서비스](#5-시스템-아키텍처-및-웹-서비스)
-6. [실행 및 배포 가이드 (Quickstart)](#6-실행-및-배포-가이드-quickstart)
-7. [관련 문서 및 리소스 링크](#7-관련-문서-및-리소스-링크)
+5. [서버 아키텍처 상세 설명 (Server Architecture)](#5-서버-아키텍처-상세-설명-server-architecture)
+6. [Docker 컨테이너화 및 배포 환경 (Docker & EC2 Orchestration)](#6-docker-컨테이너화-및-배포-환경-docker--ec2-orchestration)
+7. [실행 및 배포 가이드 (Quickstart)](#7-실행-및-배포-가이드-quickstart)
+8. [관련 문서 및 리소스 링크](#8-관련-문서-및-리소스-링크)
 
 ---
 
@@ -152,38 +153,119 @@ EDA 및 물리 공식 검증을 기반으로 수립된 **7대 공식 전처리 �
 
 ---
 
-## 5. 시스템 아키텍처 및 웹 서비스
+## 5. 서버 아키텍처 상세 설명 (Server Architecture)
 
-```
-[클라이언트 브라우저 / 외부 시스템]
-        │
-        ├─► [포트 ${FRONTEND_PORT} - 기본 80] ──► [mlops-frontend (Nginx:alpine)]
-        │                                             ├─ React 19 SPA 정적 파일 서빙
-        │                                             └─ 리버스 프록시 (/predict, /health, /docs)
-        │                                                       │
-        └─► [포트 ${BACKEND_PORT} - 기본 8000] ──────────────────┴─► [mlops-backend (FastAPI)]
-                                                                      ├─ Pydantic v2 데이터 검증
-                                                                      ├─ 실시간 물리 피처 엔지니어링
-                                                                      └─ LightGBM 인메모리 고속 추론
+본 프로젝트는 프로덕션 서빙 품질을 보장하기 위해 관심사 분리(Separation of Concerns)를 구현한 **계층형 FastAPI 백엔드**와 직관적인 UX를 제공하는 **React 19 웹 프론트엔드**로 구성되어 있습니다.
+
+```text
+API/
+├── __init__.py              # 패키지 초기화 및 하위 호환성 심볼 노출
+├── api.py                   # 메인 진입점, lifespan 컨텍스트 매니저, 전역 CORS 미들웨어 구성
+├── config.py                # Pydantic Settings 기반 환경 변수 관리 (MODEL_PATH, THRESHOLD 등)
+├── schemas.py               # Pydantic v2 데이터 검증 모델 (SensorInput, Prediction, HealthResponse)
+├── routers/                 # RESTful 라우팅 모듈
+│   ├── health.py            # GET /health (서비스 상태 및 모델 로딩 검사)
+│   └── predict.py           # POST /predict (센서 데이터 실시간 고장 추론)
+├── services/                # 비즈니스 로직 계층
+│   ├── feature_service.py   # 센서 입력 기반 물리 파생 피처(온도차, 전력, 스트레인) 실시간 계산
+│   └── model_service.py     # LightGBM Booster 인메모리 로더 및 스레드 세이프 추론 엔진
+├── requirements-api.txt     # 백엔드 프로덕션 의존성 목록
+└── tests/                   # 10개 단위/통합 테스트 스위트
 ```
 
-### 5.1 FastAPI 백엔드 계층형 아키텍처 ([`API/`](API/))
-- **`routers/`**: 엔드포인트 분리 (`/health`, `/predict`)
-- **`services/feature_service.py`**: 실시간 물리 파생 변수 계산
-- **`services/model_service.py`**: LightGBM 모델 로더 및 스레드 세이프 추론 엔진
-- **`schemas.py`**: Pydantic v2 기반 엄격한 센서 입력 유효성 검증
+### 5.1 FastAPI 백엔드 주요 모듈 및 엔드포인트 명세
+1. **`POST /predict` (실시간 설비 고장 예측)**:
+   - 클라이언트로부터 6대 센서 수치를 전달받아 `Pydantic` 스키마로 유효 범위를 엄격히 검증합니다.
+   - `feature_service`가 온도차($\Delta T$), 회전 전력($P$), 누적 스트레인 지수를 즉각 계산하여 10개 입력 피처로 변환합니다.
+   - 인메모리에 로드된 `LightGBM` 모델이 고장 확률($0.0 \sim 1.0$)과 이진 분류 라벨($0$: 정상, $1$: 고장)을 반환합니다.
+2. **`GET /health` (서비스 및 모델 헬스체크)**:
+   - 컨테이너 및 오케스트레이터의 Liveness/Readiness Probe를 위해 서버 상태(`status: ok`), 모델 로드 여부(`model_loaded: true`), 버전 정보를 반환합니다.
+3. **`GET /docs` & `GET /openapi.json` (대화형 API 문서)**:
+   - Swagger UI 및 OpenAPI 규격을 통해 브라우저에서 직접 파라미터 테스트가 가능합니다.
+4. **전역 CORS 지원**:
+   - 프론트엔드 및 외부 클라이언트 통신을 위해 `CORSMiddleware`(`allow_origins=["*"]`)가 적용되어 있습니다.
 
 ### 5.2 React 19 + Vite + TypeScript 프론트엔드 ([`frontend/`](frontend/))
-- **4대 공정 고장/정상 프리셋**: 정상 가동, HDF, OSF/TWF, PWF 1-클릭 테스트
-- **실시간 도메인 물리 계산**: 폼 입력 시 온도차, 전력, 스트레인 지수 즉시 렌더링
-- **직관적 0~100% 게이지 및 현장 조치 권고사항 안내**
-- **추론 이력 테이블 및 파라미터 복원 기능**
+현장 엔지니어 및 비전문가도 머신러닝 코드를 몰라도 즉각 설비 상태를 모니터링할 수 있도록 설계된 산업용 웹 애플리케이션입니다:
+- **1-클릭 고장 시나리오 프리셋 (`Presets.tsx`)**:
+  - `정상 가동 설비`: 표준 공정 상태 (고장 확률 0.1% 미만)
+  - `열 방출 실패 (HDF)`: 저속 회전 및 냉각 불량 조건 반영
+  - `과부하/마모 (OSF/TWF)`: 공구 마모 215분 및 고토크 인가 조건 반영
+  - `전력 이상 (PWF)`: 9,000W 초과 고전력 조건 반영
+- **도메인 물리 파생 지표 실시간 계산 (`DerivedMetrics.tsx`)**:
+  - 폼 수치 변경 시 온도차, 기계 소비 전력, 누적 스트레인을 즉시 계산하여 위험 구간 도달 여부를 시각적 뱃지로 표시합니다.
+- **직관적 0~100% 게이지 및 현장 조치 권고사항 (`PredictionResult.tsx`)**:
+  - 안전 단계(초록, <25%), 주의 단계(노랑, 25~50%), 위험 단계(빨강, $\ge 50\%$)의 3단계 가동 상태 분류 및 구체적 정비 권고안 제시.
+- **추론 이력 테이블 (`HistoryTable.tsx`)**:
+  - 세션 동안 수행된 추론 이력을 보존하며, '불러오기' 클릭 시 이전 센서 파라미터를 폼으로 1-클릭 복원합니다.
 
 ---
 
-## 6. 실행 및 배포 가이드 (Quickstart)
+## 6. Docker 컨테이너화 및 배포 환경 (Docker & EC2 Orchestration)
 
-### 6.1 Docker Compose를 통한 원클릭 실행 (추천)
+본 프로젝트는 AWS EC2 등 클라우드 인프라에서 환경 설정의 번거로움 없이 **단 한 줄의 명령어로 즉시 프로덕션 서비스를 띄울 수 있도록 Docker 멀티 컨테이너 환경**을 완비하였습니다.
+
+```
+                  [사용자 브라우저 / 외부 클라이언트]
+                                 │
+              ┌──────────────────┴──────────────────┐
+              │ (PORT: ${FRONTEND_PORT} - 기본 80)   │ (PORT: ${BACKEND_PORT} - 기본 8000)
+              ▼                                     ▼
+        [mlops-frontend]                      [mlops-backend]
+     (Nginx:alpine 리버스 프록시)            (FastAPI Uvicorn)
+        ├─ React 19 정적 번들 서빙            ├─ LightGBM 추론 엔진
+        ├─ SPA 라우팅 fallback                ├─ OpenMP 병렬 연산 (libgomp1)
+        └─ 리버스 프록시 라우팅                └─ 헬스체크 엔드포인트
+            (/predict, /health, /docs)
+              └───────── Docker Bridge Network ─────────┘
+```
+
+### 6.1 백엔드 컨테이너 ([`Dockerfile`](Dockerfile))
+- **베이스 이미지**: `python:3.11-slim` 기반 경량화 이미지 (약 180MB)
+- **Linux LightGBM 필수 라이브러리**: OpenMP 병렬 런타임인 `libgomp1` 및 헬스체크용 `curl` 설치
+- **보안 강화**: 루트 권한 탈취 방지를 위해 비특권 유저(`appuser`, UID 1000) 생성 및 실행
+- **무중단 모델 가중치 반영**: `./models:/app/models:ro` 볼륨 마운트를 통해 컨테이너 재빌드 없이 호스트의 모델 파일 갱신 지원
+- **헬스체크 정의**: `CMD curl -f http://localhost:8000/health || exit 1`
+
+### 6.2 프론트엔드 컨테이너 ([`frontend/Dockerfile`](frontend/Dockerfile) & [`frontend/nginx.conf`](frontend/nginx.conf))
+- **멀티 스테이지 빌드**:
+  - 1단계: `node:20-alpine` 환경에서 의존성 설치 및 `npm run build` 번들링 수행
+  - 2단계: 초경량 `nginx:alpine` 이미지로 정적 산출물(`dist`)만 복사하여 최종 컨테이너 크기 최소화 (약 25MB)
+- **Nginx 리버스 프록시**:
+  - 브라우저가 포트 80 하나만으로 React 웹 UI와 백엔드 API(`/predict`, `/health`, `/docs`)를 동시에 호출할 수 있도록 라우팅
+  - 브라우저의 CORS 및 방화벽 포트 개방 제약 문제 원천 해결
+  - SPA 새로고침 지원 (`try_files $uri $uri/ /index.html`) 및 정적 파일 Gzip 압축 / 1년 장기 캐싱
+
+### 6.3 `.env` 기반 동적 포트 제어 시스템 ([`.env`](.env))
+[`docker-compose.yml`](docker-compose.yml)은 루트 디렉토리의 [`.env`](.env) 파일을 자동으로 감지하여 호스트에 노출할 포트를 바인딩합니다:
+
+```env
+# 웹 프론트엔드 외부 서비스 포트 (기본값: 80 -> 웹 브라우저에서 포트 번호 없이 접속)
+# 필요에 따라 8080, 3000, 5173 등으로 자유롭게 변경 가능
+FRONTEND_PORT=80
+
+# 백엔드 API / Swagger 외부 노출 포트 (기본값: 8000)
+BACKEND_PORT=8000
+
+# 추론 모델 가중치 파일 경로 및 고장 판정 기본 임계값
+MODEL_PATH=/app/models/lightgbm_model.txt
+THRESHOLD=0.5
+```
+
+> [!TIP]
+> 포트를 변경할 때는 [`.env`](.env) 파일의 수치만 수정한 뒤 `docker compose up -d`를 실행하면 컨테이너 재빌드 없이 수 초 내로 변경된 포트로 재배치됩니다.
+
+### 6.4 AWS EC2 배포 최적화 스크립트 ([`scripts/deploy_ec2.sh`](scripts/deploy_ec2.sh))
+- **t2.micro / t3.micro 프리티어 OOM 방지**:
+  - AWS 프리티어 인스턴스의 1GB RAM 환경에서는 Docker 빌드 중 메모리 고갈로 서버가 다운되는 현상이 자주 발생합니다.
+  - `deploy_ec2.sh`는 시스템 메모리가 1.8GB 미만일 경우 **2GB 스왑 메모리(`/swapfile`)를 전자동으로 구성**하여 OOM 크래시를 원천 방지합니다.
+- **배포 자동화**: Docker 데몬 가동 확인, `docker compose up -d --build` 실행, 서비스 헬스체크 폴링, 그리고 EC2 퍼블릭 IP를 자동 조회하여 최종 접속 URL을 출력합니다.
+
+---
+
+## 7. 실행 및 배포 가이드 (Quickstart)
+
+### 7.1 Docker Compose를 통한 원클릭 실행 (추천)
 호스트 포트는 [`.env`](.env) 파일에서 자유롭게 변경할 수 있습니다 (기본값: 프론트엔드 80, 백엔드 8000).
 
 ```bash
@@ -198,20 +280,39 @@ nano .env
 # 3. 도커 컨테이너 빌드 및 백그라운드 구동
 docker compose up -d --build
 ```
-- **웹 UI 접속**: `http://localhost` (또는 `http://<호스트IP>`)
+- **웹 UI 접속**: `http://localhost` (또는 `http://<호스트IP>:<FRONTEND_PORT>`)
 - **Swagger API 문서**: `http://localhost:8000/docs` (또는 Nginx 프록시를 통해 `http://localhost/docs`)
 - **헬스체크**: `http://localhost:8000/health`
 
-### 6.2 AWS EC2 인스턴스 자동 배포
-EC2 프리티어(`t2.micro` / `t3.micro`)의 1GB RAM 메모리 부족(OOM) 방지를 위해 **2GB 스왑 메모리 자동 설정** 기능이 포함된 배포 스크립트를 제공합니다.
-
+### 7.2 AWS EC2 인스턴스 원터치 배포
 ```bash
-# EC2 인스턴스 터미널에서 실행
+# EC2 인스턴스 터미널에서 실행 (루트/sudo 권한 권장)
 sudo ./scripts/deploy_ec2.sh
 ```
 > 세부 보안 그룹 설정(포트 80, 8000 인바운드 규칙 등)은 [`DOCKER_EC2_GUIDE.md`](DOCKER_EC2_GUIDE.md)를 참조하세요.
 
-### 6.3 로컬 개발 환경 직접 실행
+### 7.3 도커 운영 및 유지보수 명령어 치트시트
+```bash
+# 실행 중인 컨테이너 상태 및 헬스체크 확인
+docker compose ps
+
+# 실시간 컨테이너 로그 스트리밍
+docker compose logs -f
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# 서비스 재시작
+docker compose restart
+
+# 서비스 완전 중지 및 리소스 정리
+docker compose down
+
+# 새 모델 가중치 무중단 반영 (컨테이너 재빌드 불필요)
+cp my_new_model.txt models/lightgbm_model.txt
+docker compose restart backend
+```
+
+### 7.4 로컬 개발 환경 직접 실행
 
 **FastAPI 백엔드:**
 ```bash
@@ -235,7 +336,7 @@ PYTHONPATH=. python -m unittest discover -s API/tests -v
 
 ---
 
-## 7. 관련 문서 및 리소스 링크
+## 8. 관련 문서 및 리소스 링크
 - **[AWS EC2 배포 가이드 (DOCKER_EC2_GUIDE.md)](DOCKER_EC2_GUIDE.md)**: EC2 보안 그룹 설정, Docker 설치 및 컨테이너 관리 매뉴얼
 - **[Week 06 종합 프로젝트 보고서 (week06.md)](week06.md)**: 하이퍼파라미터 튜닝, 평가 지표, 프론트엔드 구축 및 Docker 연동 상세 보고서
 - **[전처리 정책 보고서 (notes/preprocessing_policy.md)](notes/preprocessing_policy.md)**: 7대 전처리 원칙 및 EDA 검증 보고서
