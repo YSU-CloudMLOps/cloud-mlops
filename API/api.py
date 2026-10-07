@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from API.config import Settings, get_settings
 from API.routers.health import router as health_router
@@ -41,6 +42,15 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         lifespan=lifespan,
     )
     application.state.settings = app_settings
+
+    # Enable Cross-Origin Resource Sharing (CORS) for web frontend
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Include modular routers
     application.include_router(health_router, prefix=app_settings.api_prefix)

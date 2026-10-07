@@ -1,0 +1,58 @@
+services:
+  # ========================================================
+  # Backend Service: FastAPI + LightGBM Predictive Model
+  # ========================================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mlops-backend
+    restart: unless-stopped
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - MODEL_PATH=${MODEL_PATH:-/app/models/lightgbm_model.txt}
+      - THRESHOLD=${THRESHOLD:-0.5}
+    ports:
+      # Host port configured via BACKEND_PORT in .env (default: 8000)
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      # Mount models directory as read-only so weights can be updated without rebuilding
+      - ./models:/app/models:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - mlops-network
+
+  # ========================================================
+  # Frontend Service: React 19 + Vite + Nginx Reverse Proxy
+  # ========================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mlops-frontend
+    restart: unless-stopped
+    ports:
+      # Host port configured via FRONTEND_PORT in .env (default: 80)
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - mlops-network
+
+networks:
+  mlops-network:
+    name: mlops-network
+    driver: bridge

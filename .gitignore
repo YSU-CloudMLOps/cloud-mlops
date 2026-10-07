@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+# Node.js / Frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+.npm/
+
 # Distribution / packaging
 .Python
 build/
@@ -148,7 +154,9 @@ activemq-data/
 *.sage.py
 
 # Environments
-.env
+# .env (tracked with default port configuration; customizable per deployment)
+!.env
+!.env.example
 .envrc
 .venv
 env/
