@@ -1,0 +1,30 @@
+# Git and version control
+.git
+.gitignore
+
+# Python virtual environment and caches
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Heavy datasets and unnecessary EDA notebooks/figures
+dataset/
+charged-ieee/
+figures/
+notes/
+members/
+
+# Frontend local build artifacts
+frontend/node_modules
+frontend/dist
+
+# Logs and environment files
+*.log
+.env

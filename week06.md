@@ -176,16 +176,44 @@ PYTHONPATH=. python -m unittest discover -s API/tests -v
 ```
 > 결과: **10개 테스트 모두 성공 통과 (`Ran 10 tests in 0.081s ... OK`)**
 
+### 5.4 AWS EC2 Docker 컨테이너 배포 및 `.env` 포트 커스터마이징
+
+AWS EC2 등 클라우드 인스턴스에서 서비스를 1-클릭으로 즉각 가동할 수 있도록 **Docker Compose 및 Nginx 리버스 프록시 아키텍처**를 완비하였습니다.
+
+1. **포트 커스터마이징 (`.env`)**:
+   ```env
+   # 웹 프론트엔드 호스트 포트 (기본값: 80, 8080 등으로 변경 가능)
+   FRONTEND_PORT=80
+
+   # 백엔드 API 호스트 포트 (기본값: 8000)
+   BACKEND_PORT=8000
+   ```
+2. **원클릭 배포 스크립트 ([`scripts/deploy_ec2.sh`](scripts/deploy_ec2.sh))**:
+   - `t2.micro` / `t3.micro` 프리티어 인스턴스의 1GB RAM 부족(OOM) 방지를 위해 **2GB 스왑 메모리 자동 설정**
+   - Docker & Docker Compose 상태 검증 및 무중단 빌드/백그라운드 가동
+   - 실행 명령어: `sudo ./scripts/deploy_ec2.sh`
+3. **수동 구동 명령어**:
+   ```bash
+   # 백그라운드 빌드 및 실행
+   docker compose up -d --build
+
+   # 상태 확인
+   docker compose ps
+   ```
+4. **상세 가이드**: [`DOCKER_EC2_GUIDE.md`](DOCKER_EC2_GUIDE.md)
+
 ---
 
-## 6. 결론 및 향후 계획
+## 6. 결론 및 성과 종합
 
 1. **하이퍼파라미터 튜닝 성과**:
-   - 베이지안 최적화를 통해 LightGBM의 테스트 오탐(FP)을 6건에서 4건으로 줄이고 정밀도를 93.10%로 끌어올렸으며, 전체 테스트 정확도 **99.10%**와 PR-AUC **0.8978**을 달성했습니다.
+   - 베이지안 최적화(Optuna)를 통해 LightGBM의 테스트 오탐(FP)을 6건에서 4건으로 줄이고 정밀도를 93.10%로 끌어올렸으며, 전체 테스트 정확도 **99.10%**와 PR-AUC **0.8978**을 달성했습니다.
    - XGBoost는 오탐을 단 1건으로 억제하며 정밀도 98.08%를 기록했습니다.
 2. **풀스택 서빙 아키텍처 완성**:
    - 모듈화된 FastAPI 백엔드와 모던 React-Vite 프론트엔드를 결합하여, 비전문가도 쉽게 밀링 설비 상태를 점검할 수 있는 직관적인 예지보전 서비스를 구축했습니다.
-3. **다음 단계 제언**:
+3. **클라우드(EC2) 즉시 배포 환경 완비**:
+   - Docker Compose 멀티 컨테이너와 Nginx 리버스 프록시, `.env` 기반 포트 제어 시스템 및 메모리 보호 스왑 스크립트를 구현하여 프로덕션 EC2에 언제든 원터치로 배포할 수 있는 환경을 확립했습니다.
+4. **다음 단계 제언**:
    - 다중 라벨 고장 유형(TWF, HDF, PWF, OSF, RNF) 동시 진단 모델 확장
-   - Docker / Docker Compose를 통한 백엔드 및 프론트엔드 단일 컨테이너 오케스트레이션 구성
    - 실시간 센서 스트리밍 시뮬레이터(WebSocket 연동) 기능 추가
+
