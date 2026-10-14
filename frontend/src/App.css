@@ -219,6 +219,186 @@
   white-space: nowrap;
 }
 
+/* Target Equipment & Product Scope Section */
+.equipment-info-card {
+  margin-bottom: 1.5rem;
+}
+
+.btn-toggle-detail {
+  font-family: var(--font-mono);
+  font-size: 0.725rem;
+  letter-spacing: 0.5px;
+  padding: 0.35rem 0.85rem;
+  color: var(--color-body);
+  white-space: nowrap;
+}
+
+.btn-toggle-detail:hover {
+  color: var(--color-ink);
+}
+
+.product-types-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 860px) {
+  .product-types-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.product-type-box {
+  background-color: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  padding: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.product-type-box:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.product-type-badge-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.65rem;
+  gap: 0.5rem;
+}
+
+.type-pill-lg {
+  font-family: var(--font-mono);
+  font-size: 0.725rem;
+  letter-spacing: 0.8px;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-hairline);
+}
+
+.type-pill-lg.type-l {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.type-pill-lg.type-m {
+  border-color: rgba(160, 195, 236, 0.4);
+  color: var(--color-accent-breeze);
+  background-color: rgba(160, 195, 236, 0.05);
+}
+
+.type-pill-lg.type-h {
+  border-color: rgba(196, 181, 253, 0.4);
+  color: var(--color-accent-twilight);
+  background-color: rgba(196, 181, 253, 0.05);
+}
+
+.product-share-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+  color: var(--color-mute);
+}
+
+.product-box-title {
+  font-size: 0.95rem;
+  letter-spacing: -0.2px;
+  color: var(--color-ink);
+  margin-bottom: 0.35rem;
+}
+
+.product-box-desc {
+  font-size: 0.8rem;
+  color: var(--color-body-mid);
+  line-height: 1.5;
+}
+
+/* Equipment Details Drawer */
+.equipment-details-drawer {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-hairline);
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detail-col {
+  background-color: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  padding: 1.15rem;
+}
+
+.detail-col-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+  color: var(--color-ink);
+}
+
+.detail-col-title {
+  font-family: var(--font-mono);
+  font-size: 0.775rem;
+  letter-spacing: 0.8px;
+  color: var(--color-mute);
+}
+
+.detail-col-body {
+  font-size: 0.825rem;
+  color: var(--color-body);
+  line-height: 1.55;
+}
+
+.detail-col-body strong {
+  color: var(--color-ink);
+}
+
+.failure-modes-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.failure-modes-list li {
+  font-size: 0.8rem;
+  color: var(--color-body-mid);
+  line-height: 1.45;
+}
+
+.failure-modes-list code {
+  font-family: var(--font-mono);
+  font-size: 0.725rem;
+  background-color: var(--color-canvas-card);
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  margin-right: 0.4rem;
+}
+
 /* Presets Section */
 .presets-grid {
   display: grid;

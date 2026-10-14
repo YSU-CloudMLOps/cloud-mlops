@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
+import { EquipmentInfo } from './components/EquipmentInfo';
 import { Presets } from './components/Presets';
 import { SensorForm } from './components/SensorForm';
 import { DerivedMetrics } from './components/DerivedMetrics';
@@ -100,6 +101,11 @@ export const App: React.FC = () => {
       />
 
       <main className="main-content">
+        {/* Target Equipment & Product Scope Section */}
+        <section className="section-equipment-info">
+          <EquipmentInfo />
+        </section>
+
         {/* Presets Row */}
         <section className="section-presets">
           <Presets

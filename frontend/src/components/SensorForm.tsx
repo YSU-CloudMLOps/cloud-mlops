@@ -60,7 +60,7 @@ export const SensorForm: React.FC<SensorFormProps> = ({
             >
               <span className="segment-main">{typeOption} TYPE</span>
               <span className="segment-sub">
-                {typeOption === 'L' ? '표준/저가 60%' : typeOption === 'M' ? '중급형 30%' : '고급형 10%'}
+                {typeOption === 'L' ? '양산·표준 부품 (60%)' : typeOption === 'M' ? '산업·자동차 부품 (30%)' : '항공·고정밀 부품 (10%)'}
               </span>
             </button>
           ))}
