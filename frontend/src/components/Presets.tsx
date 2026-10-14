@@ -12,16 +12,19 @@ export const Presets: React.FC<PresetsProps> = ({ onSelectPreset }) => {
   return (
     <div className="card presets-card">
       <div className="card-header">
-        <div className="card-title-group">
-          <Bookmark size={20} className="card-icon" />
-          <h2 className="card-title">테스트 시나리오 프리셋</h2>
+        <div>
+          <span className="eyebrow-mono">// BENCHMARK SCENARIOS</span>
+          <div className="card-title-group">
+            <Bookmark size={18} className="card-icon" />
+            <h2 className="card-title">테스트 시나리오 프리셋</h2>
+          </div>
         </div>
         <span className="card-badge-info">
-          <Sparkles size={14} /> 클릭 시 자동 입력
+          <Sparkles size={12} /> 클릭 시 자동 입력
         </span>
       </div>
       <p className="card-description">
-        공학적 도메인 고장 조건(방열 실패, 과부하, 전력 이상)이 반영된 예제 데이터를 즉시 적용하여 진단해 보세요.
+        공학적 도메인 고장 조건(방열 실패 HDF, 과부하 OSF, 전력 이상 PWF)이 반영된 센서 벤치마크 데이터를 즉시 주입합니다.
       </p>
 
       <div className="presets-grid">
