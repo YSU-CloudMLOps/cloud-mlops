@@ -133,36 +133,37 @@ export const App: React.FC = () => {
 
             {/* Model Architecture Info Card */}
             <div className="card model-info-card">
-              <h3 className="info-card-title">Week 06 하이퍼파라미터 튜닝 성능</h3>
+              <span className="eyebrow-mono">// ARCHITECTURE BENCHMARK</span>
+              <h3 className="info-card-title">Week 06 하이퍼파라미터 최적화 검증</h3>
               <p className="info-card-desc">
                 Optuna 베이지안 최적화(TPE Sampler)와 5-Fold 계층화 교차 검증을 통해 최적화된 LightGBM 모델의 성능입니다.
               </p>
 
               <div className="stats-mini-grid">
                 <div className="stat-box">
-                  <span className="stat-label">테스트 정확도 (Accuracy)</span>
+                  <span className="stat-label">// ACCURACY</span>
                   <span className="stat-number highlight">99.1%</span>
                   <span className="stat-sub">1,982 / 2,000 정상 분류</span>
                 </div>
                 <div className="stat-box">
-                  <span className="stat-label">정밀도 (Precision)</span>
+                  <span className="stat-label">// PRECISION</span>
                   <span className="stat-number">93.1%</span>
                   <span className="stat-sub">오탐(FP) 4건으로 축소</span>
                 </div>
                 <div className="stat-box">
-                  <span className="stat-label">F1-Score</span>
+                  <span className="stat-label">// F1-SCORE</span>
                   <span className="stat-number">0.857</span>
                   <span className="stat-sub">최적 임계값 적용 시 0.859</span>
                 </div>
                 <div className="stat-box">
-                  <span className="stat-label">PR-AUC</span>
+                  <span className="stat-label">// PR-AUC</span>
                   <span className="stat-number">0.898</span>
                   <span className="stat-sub">베이스라인 대비 +0.010 향상</span>
                 </div>
               </div>
 
               <div className="info-features-list">
-                <span className="features-title">주요 입력 및 파생 피처 (10개):</span>
+                <span className="features-title">// ENGINEERED FEATURES (10):</span>
                 <div className="feature-tags">
                   <code>type_encoded</code>
                   <code>air_temperature_k</code>
