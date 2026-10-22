@@ -5,11 +5,13 @@ Executed according to the Preprocessing Policy defined in notes/preprocessing_po
 """
 
 import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-DATASET_DIR = '/home/ubuntu/cloud-mlops/dataset'
+WORKSPACE_ROOT = Path(__file__).absolute().parents[1]
+DATASET_DIR = str(WORKSPACE_ROOT / 'dataset')
 RAW_DATA_PATH = os.path.join(DATASET_DIR, 'ai4i2020.csv')
 PREPROCESSED_DATA_PATH = os.path.join(DATASET_DIR, 'ai4i2020_preprocessed.csv')
 TRAIN_DATA_PATH = os.path.join(DATASET_DIR, 'train.csv')

@@ -74,3 +74,12 @@
 - 성능: Precision 96.5%, F1 0.88            - 성능: Recall 85.3%, 미탐 10건 이하
 - 효과: 오탐을 단 2건으로 줄여 점검비용 극소화  - 효과: 설비 보호를 위한 선제적 점검
 ```
+
+---
+
+## 5. 후속 모델 개선(v2) 업데이트 요약
+
+이후 수행된 2차 종합 개선([`notes/model_improvement_report.md`](model_improvement_report.md))에서는:
+1. `hdf_risk`의 IEEE-754 부동소수점 반올림 경계 손실(`temp_diff_k == 8.6`)을 수정하여 3대 결정론적 고장(`HDF`, `PWF`, `OSF`)을 **100.00% 무오류 포착**하고,
+2. 6종의 **연속형 임계 마진(Continuous Boundary Margin) 피처**를 추가(총 23개 피처)하며,
+3. 4대 고장 모드 계층형 모델링(`Hierarchical 4-Mode`), `RNF` 라벨 노이즈 정제, Optuna 5-Fold OOF 튜닝 및 확률 보정을 결합하여 **Holdout Test Accuracy 99.45%, Precision 100.00% (FP 0건), Recall 83.82% (TP 57건 / FN 11건), F1-Score 0.9120, PR-AUC 0.9106**을 달성하고 FastAPI 서빙 파이프라인([`api/services/feature_service.py`](../api/services/feature_service.py))에 반영했습니다.

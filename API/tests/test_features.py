@@ -38,6 +38,16 @@ class FeatureServiceTests(unittest.TestCase):
         # Verify tool_wear_critical: >= 200 should be 1
         self.assertEqual(row["tool_wear_critical"], 1)
 
+        # Verify v2 advanced boundary and margin features (23 features total)
+        self.assertEqual(len(df.columns), 23)
+        self.assertEqual(row["hdf_risk"], 0)
+        self.assertEqual(row["pwf_risk"], 0)
+        self.assertEqual(row["osf_risk"], 0)
+        self.assertEqual(row["twf_zone"], 1)
+        self.assertEqual(row["physical_risk_sum"], 0)
+        self.assertAlmostEqual(row["osf_margin"], 8400.0 - 12000.0)
+        self.assertAlmostEqual(row["twf_wear_excess"], 12.0)
+
     def test_tool_wear_critical_threshold(self):
         # Under 200 min
         sensor_normal = SensorInput(
