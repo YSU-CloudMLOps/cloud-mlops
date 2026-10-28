@@ -4,6 +4,8 @@ import { FLEET } from '../constants/fleet';
 import { predictFailure } from '../services/api';
 import { ACTION_LABEL, classifyRisk, recommendAction, TIER_LABEL } from '../utils/risk';
 import { BatchPlanner } from './BatchPlanner';
+import { SupervisorLog } from './SupervisorLog';
+import type { SupervisorLogEntry } from '../types';
 import { FleetBoard, type FleetStatus } from './FleetBoard';
 
 export const SupervisorView: React.FC = () => {
@@ -13,6 +15,17 @@ export const SupervisorView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>(FLEET[0].id);
+  const [logs, setLogs] = useState<SupervisorLogEntry[]>([]);
+
+  const addLogs = useCallback((entries: Omit<SupervisorLogEntry, 'id' | 'timestamp'>[]) => {
+    const timestamp = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const stamped = entries.map((e) => ({
+      ...e,
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      timestamp,
+    }));
+    setLogs((prev) => [...stamped, ...prev].slice(0, 50));
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -29,9 +42,25 @@ export const SupervisorView: React.FC = () => {
     // 위험도 높은 설비를 먼저 보여준다. 진단 실패 설비는 맨 뒤.
     next.sort((a, b) => (b.result?.failure_probability ?? -1) - (a.result?.failure_probability ?? -1));
     setStatuses(next);
+    addLogs(
+      next
+        .filter((n) => n.result)
+        .map((n) => {
+          const sensors = n.equipment.sensors;
+          const prob = n.result!.failure_probability;
+          return {
+            kind: '전체 진단' as const,
+            equipmentId: n.equipment.id,
+            condition: `${sensors.type}등급 · ${sensors.rotational_speed_rpm}rpm · ${sensors.torque_nm}Nm · 마모 ${sensors.tool_wear_min}min`,
+            probability: prob,
+            action: recommendAction(prob),
+            note: `${n.equipment.line} · ${n.equipment.currentJob}`,
+          };
+        }),
+    );
     setUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     setLoading(false);
-  }, []);
+  }, [addLogs]);
 
   useEffect(() => {
     refresh();
@@ -63,7 +92,7 @@ export const SupervisorView: React.FC = () => {
 
       <div className="workspace-grid">
         {/* key로 설비 변경 시 폼을 해당 설비 센서값으로 초기화 */}
-        <BatchPlanner key={selected.id} equipment={selected} />
+        <BatchPlanner key={selected.id} equipment={selected} onLog={(e) => addLogs([e])} />
 
         <div className="card handover-card">
           <div className="card-header">
@@ -102,6 +131,8 @@ export const SupervisorView: React.FC = () => {
           )}
         </div>
       </div>
+
+      <SupervisorLog logs={logs} onClear={() => setLogs([])} />
     </>
   );
 };
