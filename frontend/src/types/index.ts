@@ -58,6 +58,7 @@ export interface SupervisorLogEntry {
   timestamp: string;
   kind: '전체 진단' | '투입 시뮬레이션';
   equipmentId: string;
+  sensors: SensorInput;
   condition: string;
   probability: number;
   action: MaintenanceAction;

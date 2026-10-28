@@ -6,6 +6,8 @@ import { ACTION_LABEL, classifyRisk, recommendAction, TIER_LABEL } from '../util
 
 interface BatchPlannerProps {
   equipment: EquipmentSnapshot;
+  /** 로그에서 불러온 조건. 없으면 설비의 현재 센서값으로 시작한다. */
+  initial?: SensorInput;
   onLog: (entry: Omit<SupervisorLogEntry, 'id' | 'timestamp'>) => void;
 }
 
@@ -38,11 +40,12 @@ function decide(c: Comparison): { title: string; detail: string; tone: 'safe' | 
   };
 }
 
-export const BatchPlanner: React.FC<BatchPlannerProps> = ({ equipment, onLog }) => {
-  const [type, setType] = useState<ProductType>(equipment.sensors.type);
-  const [rpm, setRpm] = useState<number>(equipment.sensors.rotational_speed_rpm);
-  const [torque, setTorque] = useState<number>(equipment.sensors.torque_nm);
-  const [wear, setWear] = useState<number>(equipment.sensors.tool_wear_min);
+export const BatchPlanner: React.FC<BatchPlannerProps> = ({ equipment, initial, onLog }) => {
+  const start = initial ?? equipment.sensors;
+  const [type, setType] = useState<ProductType>(start.type);
+  const [rpm, setRpm] = useState<number>(start.rotational_speed_rpm);
+  const [torque, setTorque] = useState<number>(start.torque_nm);
+  const [wear, setWear] = useState<number>(start.tool_wear_min);
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +71,7 @@ export const BatchPlanner: React.FC<BatchPlannerProps> = ({ equipment, onLog }) 
       onLog({
         kind: '투입 시뮬레이션',
         equipmentId: equipment.id,
+        sensors: base,
         condition: `${type}등급 · ${rpm}rpm · ${torque}Nm · 마모 ${wear}min`,
         probability: keep.failure_probability,
         action: recommendAction(keep.failure_probability),
@@ -101,7 +105,7 @@ export const BatchPlanner: React.FC<BatchPlannerProps> = ({ equipment, onLog }) 
   };
 
   return (
-    <div className="card planner-card">
+    <div className="card planner-card" id="batch-planner">
       <div className="card-header">
         <div>
           <span className="eyebrow-mono">// NEXT BATCH GO / NO-GO</span>
