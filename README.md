@@ -151,6 +151,24 @@ EDA 및 물리 공식 검증을 기반으로 수립된 **7대 공식 전처리 �
 > 📊 **성능 비교 시각화 차트**: [`figures/14_hyperparameter_tuning_comparison.png`](figures/14_hyperparameter_tuning_comparison.png)  
 > (CV F1 비교, PR-AUC 비교, 오류 감소량 차트, PR 곡선 수록)
 
+### 4.3 2차 종합 모델 개선(v2) 성능 벤치마크 (23개 도메인·마진 피처 & 오탐 0건 달성)
+
+기존 파이프라인의 오분류 원인을 해부하여 **IEEE-754 부동소수점 방열 고장(`HDF`) 경계 손실 수정**, **6종의 연속형 임계 마진(Margin) 피처 추가(총 23개 피처)**, **Optuna 5-Fold OOF 튜닝 및 확률 캘리브레이션**을 결합한 v2 파이프라인([`scripts/improve_models.py`](scripts/improve_models.py))을 구축했습니다.
+
+| 모델 / 파이프라인 | 피처 수 | Accuracy | Precision | Recall | F1-Score (@0.50) | PR-AUC | Brier Score | 혼동 행렬 (TN / FP / FN / TP) | 총 오류 (FP+FN) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **LightGBM v2 (최종 서빙)** 🏆 | **23** | **99.45%** | **100.00%** | **83.82%** | **0.9120** | **0.9087** | 0.0067 | 1932 / **0** / 11 / 57 | **11건 (오탐 0건, -38.9% 감소)** |
+| **XGBoost v2** | **23** | **99.45%** | **100.00%** | **83.82%** | **0.9120** | 0.9031 | 0.0056 | 1932 / **0** / 11 / 57 | **11건 (오탐 0건)** |
+| **Random Forest v2** | **23** | **99.45%** | **100.00%** | **83.82%** | **0.9120** | **0.9101** | **0.0053** | 1932 / **0** / 11 / 57 | **11건 (오탐 0건)** |
+| **계층형 4대 고장 모드 분류 (M3)** | **23** | **99.45%** | **100.00%** | **83.82%** | **0.9120** | 0.9021 | **0.0056** | 1932 / **0** / 11 / 57 | **11건 (오탐 0건)** |
+| **OOF Soft Voting Ensemble v2 (M5)** 🏆 | **23** | **99.45%** | **100.00%** | **83.82%** | **0.9120** | 0.9085 | 0.0061 | 1932 / **0** / 11 / 57 | **11건 (오탐 0건)** |
+
+> 📊 **v2 종합 개선 시각화 차트**:
+> - [`figures/15_error_slice_and_ablation.png`](figures/15_error_slice_and_ablation.png): 고장 모드별 미탐(FN) 분해, FP/FN 감소 추이, 단계별 F1/PR-AUC 절제 연구
+> - [`figures/16_v2_model_comparison_and_calibration.png`](figures/16_v2_model_comparison_and_calibration.png): PR 곡선 비교, 혼동 행렬, 확률 보정 곡선(Brier Score), 상위 15개 피처 중요도
+> 
+> 📄 **상세 분석 보고서**: [`notes/model_improvement_report.md`](notes/model_improvement_report.md)
+
 ---
 
 ## 5. 서버 아키텍처 상세 설명 (Server Architecture)
@@ -289,7 +307,7 @@ docker compose up -d --build
 # EC2 인스턴스 터미널에서 실행 (루트/sudo 권한 권장)
 sudo ./scripts/deploy_ec2.sh
 ```
-> 세부 보안 그룹 설정(포트 80, 8000 인바운드 규칙 등)은 [`DOCKER_EC2_GUIDE.md`](DOCKER_EC2_GUIDE.md)를 참조하세요.
+> 세부 보안 그룹 설정(포트 80, 8000 인바운드 규칙 등)은 [`notes/DOCKER_EC2_GUIDE.md`](notes/DOCKER_EC2_GUIDE.md)를 참조하세요.
 
 ### 7.3 도커 운영 및 유지보수 명령어 치트시트
 ```bash
@@ -337,9 +355,12 @@ PYTHONPATH=. python -m unittest discover -s API/tests -v
 ---
 
 ## 8. 관련 문서 및 리소스 링크
-- **[AWS EC2 배포 가이드 (DOCKER_EC2_GUIDE.md)](DOCKER_EC2_GUIDE.md)**: EC2 보안 그룹 설정, Docker 설치 및 컨테이너 관리 매뉴얼
-- **[Week 06 종합 프로젝트 보고서 (week06.md)](week06.md)**: 하이퍼파라미터 튜닝, 평가 지표, 프론트엔드 구축 및 Docker 연동 상세 보고서
+- **[2차 모델 종합 개선 보고서 (notes/model_improvement_report.md)](notes/model_improvement_report.md)**: IEEE-754 부동소수점 오차 수정, 23개 마진 피처, Optuna 튜닝 및 오탐 0건(F1 0.9120) 달성 보고서
+- **[AWS EC2 배포 가이드 (notes/DOCKER_EC2_GUIDE.md)](notes/DOCKER_EC2_GUIDE.md)**: EC2 보안 그룹 설정, Docker 설치 및 컨테이너 관리 매뉴얼
+- **[Week 06 종합 프로젝트 보고서 (notes/week06.md)](notes/week06.md)**: 하이퍼파라미터 튜닝, 평가 지표, 프론트엔드 구축 및 Docker 연동 상세 보고서
+- **[고도화 앙상블 평가 보고서 (notes/advanced_ensemble_evaluation.md)](notes/advanced_ensemble_evaluation.md)**: 1차 도메인 피처 및 소프트 보팅 앙상블 분석
 - **[전처리 정책 보고서 (notes/preprocessing_policy.md)](notes/preprocessing_policy.md)**: 7대 전처리 원칙 및 EDA 검증 보고서
 - **[데이터셋 상세 명세 (notes/dataset_info.md)](notes/dataset_info.md)**: 기초 통계 및 세부 고장 발생 조건 정리
+- **[종합 모델 개선 스크립트 (scripts/improve_models.py)](scripts/improve_models.py)**: v2 23-피처 전처리, 4대 모드 계층형 모델링, Optuna 튜닝 및 시각화 파이프라인
 - **[하이퍼파라미터 튜닝 스크립트 (scripts/tune_hyperparameters.py)](scripts/tune_hyperparameters.py)**: Optuna 5-Fold Stratified CV 파이프라인
 - **[IEEE 학술 연구 보고서 (charged-ieee/main.pdf)](charged-ieee/main.pdf)**: 설비 예지보전 MLOps 파이프라인 연구 논문

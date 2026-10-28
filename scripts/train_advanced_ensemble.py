@@ -21,19 +21,17 @@ from sklearn.metrics import (
     roc_auc_score, average_precision_score, confusion_matrix,
     roc_curve, precision_recall_curve
 )
+from pathlib import Path
 from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.base import BaseEstimator, ClassifierMixin
 
-BASE_DIR = '/home/ubuntu/cloud-mlops'
+BASE_DIR = str(Path(__file__).absolute().parents[1])
 DATASET_DIR = os.path.join(BASE_DIR, 'dataset')
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
 FIGURES_DIR = os.path.join(BASE_DIR, 'figures')
 NOTES_DIR = os.path.join(BASE_DIR, 'notes')
-
-os.makedirs(MODELS_DIR, exist_ok=True)
-os.makedirs(FIGURES_DIR, exist_ok=True)
 
 plt.style.use('seaborn-v0_8-whitegrid')
 plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']

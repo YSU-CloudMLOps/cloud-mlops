@@ -1,0 +1,588 @@
+{
+  "timestamp_utc": "2026-10-22T07:48:15.539223+00:00",
+  "feature_count": 23,
+  "feature_names": [
+    "type_encoded",
+    "air_temperature_k",
+    "process_temperature_k",
+    "rotational_speed_rpm",
+    "torque_nm",
+    "tool_wear_min",
+    "temp_diff_k",
+    "power_w",
+    "strain_min_nm",
+    "tool_wear_critical",
+    "hdf_risk",
+    "pwf_risk",
+    "osf_risk",
+    "twf_zone",
+    "physical_risk_sum",
+    "temp_ratio",
+    "torque_rpm_ratio",
+    "osf_margin",
+    "osf_strain_ratio",
+    "hdf_temp_margin",
+    "hdf_rpm_margin",
+    "pwf_margin",
+    "twf_wear_excess"
+  ],
+  "key_discoveries": {
+    "ieee754_hdf_truncation_bug": {
+      "description": "Rounding temp_diff_k to 2 decimal places before (< 8.6) merged 12 HDF=1 cases (310.7-302.1 = 8.599999999999966 < 8.6) with 15 HDF=0 cases (311.0-302.4 = 8.600000000000023 >= 8.6). Computing raw float difference achieved 100% deterministic accuracy across all 10,000 rows for HDF, PWF, and OSF.",
+      "hdf_exact_matches": "10,000 / 10,000 (115/115 TP, 0 FP, 0 FN)",
+      "pwf_exact_matches": "10,000 / 10,000 (95/95 TP, 0 FP, 0 FN)",
+      "osf_exact_matches": "10,000 / 10,000 (98/98 TP, 0 FP, 0 FN)"
+    },
+    "scale_pos_weight_calibration": {
+      "description": "Legacy scale_pos_weight=28.52 inflated the ~5.3% empirical TWF risk in tool_wear_min>=200 above 0.50, causing false alarms (FP). Constraining scale_pos_weight in [0.8, 2.0] reduced Brier score and eliminated all False Positives (FP=0).",
+      "brier_score_before_m2": 0.008187989015225241,
+      "brier_score_after_m4": 0.006685646358723226
+    },
+    "label_noise_analysis": {
+      "train_unexplained_rnf_failures": 7,
+      "test_unexplained_rnf_failures": 2,
+      "clean_target_test_metrics": {
+        "accuracy": 0.9945,
+        "precision": 1.0,
+        "recall": 0.8382352941176471,
+        "f1": 0.912,
+        "roc_auc": 0.9821847217147728,
+        "pr_auc": 0.9105614875898268,
+        "brier_score": 0.006651381828956312,
+        "confusion_matrix": {
+          "tn": 1932,
+          "fp": 0,
+          "fn": 11,
+          "tp": 57
+        },
+        "total_errors": 11
+      }
+    }
+  },
+  "error_slice_progression": [
+    {
+      "model": "M0: Base (10f)",
+      "total_fn": 12,
+      "total_fp": 6,
+      "fn_by_mode": {
+        "TWF": 9,
+        "HDF": 1,
+        "PWF": 0,
+        "OSF": 0,
+        "Unexplained_RNF": 2
+      },
+      "fn_by_type": {
+        "L": 6,
+        "M": 4,
+        "H": 2
+      },
+      "fp_by_type": {
+        "L": 5,
+        "M": 1,
+        "H": 0
+      }
+    },
+    {
+      "model": "M1: Tuned (10f)",
+      "total_fn": 13,
+      "total_fp": 5,
+      "fn_by_mode": {
+        "TWF": 9,
+        "HDF": 2,
+        "PWF": 0,
+        "OSF": 0,
+        "Unexplained_RNF": 2
+      },
+      "fn_by_type": {
+        "L": 6,
+        "M": 5,
+        "H": 2
+      },
+      "fp_by_type": {
+        "L": 4,
+        "M": 1,
+        "H": 0
+      }
+    },
+    {
+      "model": "M2: Adv (17f)",
+      "total_fn": 12,
+      "total_fp": 5,
+      "fn_by_mode": {
+        "TWF": 9,
+        "HDF": 1,
+        "PWF": 0,
+        "OSF": 0,
+        "Unexplained_RNF": 2
+      },
+      "fn_by_type": {
+        "L": 6,
+        "M": 4,
+        "H": 2
+      },
+      "fp_by_type": {
+        "L": 4,
+        "M": 1,
+        "H": 0
+      }
+    },
+    {
+      "model": "M3: Hier 4-Mode",
+      "total_fn": 11,
+      "total_fp": 0,
+      "fn_by_mode": {
+        "TWF": 9,
+        "HDF": 0,
+        "PWF": 0,
+        "OSF": 0,
+        "Unexplained_RNF": 2
+      },
+      "fn_by_type": {
+        "L": 6,
+        "M": 4,
+        "H": 1
+      },
+      "fp_by_type": {
+        "L": 0,
+        "M": 0,
+        "H": 0
+      }
+    },
+    {
+      "model": "M4: LGB v2 (23f)",
+      "total_fn": 11,
+      "total_fp": 0,
+      "fn_by_mode": {
+        "TWF": 9,
+        "HDF": 0,
+        "PWF": 0,
+        "OSF": 0,
+        "Unexplained_RNF": 2
+      },
+      "fn_by_type": {
+        "L": 6,
+        "M": 4,
+        "H": 1
+      },
+      "fp_by_type": {
+        "L": 0,
+        "M": 0,
+        "H": 0
+      }
+    },
+    {
+      "model": "M5: Ensemble v2",
+      "total_fn": 11,
+      "total_fp": 0,
+      "fn_by_mode": {
+        "TWF": 9,
+        "HDF": 0,
+        "PWF": 0,
+        "OSF": 0,
+        "Unexplained_RNF": 2
+      },
+      "fn_by_type": {
+        "L": 6,
+        "M": 4,
+        "H": 1
+      },
+      "fp_by_type": {
+        "L": 0,
+        "M": 0,
+        "H": 0
+      }
+    }
+  ],
+  "ablation_progression": [
+    {
+      "stage": "M0: Baseline LightGBM (10 feat)",
+      "stage_short": "M0: Base (10f)",
+      "cv_f1": 0.8589842992259331,
+      "cv_pr_auc": 0.8750109630192785,
+      "test_metrics": {
+        "accuracy": 0.991,
+        "precision": 0.9032258064516129,
+        "recall": 0.8235294117647058,
+        "f1": 0.8615384615384616,
+        "roc_auc": 0.988605224698575,
+        "pr_auc": 0.8927572512683135,
+        "brier_score": 0.008510222774477829,
+        "confusion_matrix": {
+          "tn": 1926,
+          "fp": 6,
+          "fn": 12,
+          "tp": 56
+        },
+        "total_errors": 18
+      }
+    },
+    {
+      "stage": "M1: Legacy Tuned LightGBM (10 feat)",
+      "stage_short": "M1: Tuned (10f)",
+      "cv_f1": 0.8447692307692307,
+      "cv_pr_auc": 0.8849214970533721,
+      "test_metrics": {
+        "accuracy": 0.991,
+        "precision": 0.9166666666666666,
+        "recall": 0.8088235294117647,
+        "f1": 0.859375,
+        "roc_auc": 0.9847765193033735,
+        "pr_auc": 0.8992242975940695,
+        "brier_score": 0.008060752595420115,
+        "confusion_matrix": {
+          "tn": 1927,
+          "fp": 5,
+          "fn": 13,
+          "tp": 55
+        },
+        "total_errors": 18
+      }
+    },
+    {
+      "stage": "M2: Legacy Adv LightGBM (17 feat)",
+      "stage_short": "M2: Adv (17f)",
+      "cv_f1": 0.8855953591587309,
+      "cv_pr_auc": 0.9012597742267111,
+      "test_metrics": {
+        "accuracy": 0.9915,
+        "precision": 0.9180327868852459,
+        "recall": 0.8235294117647058,
+        "f1": 0.8682170542635659,
+        "roc_auc": 0.9770886615515773,
+        "pr_auc": 0.8851952275136771,
+        "brier_score": 0.008187989015225241,
+        "confusion_matrix": {
+          "tn": 1927,
+          "fp": 5,
+          "fn": 12,
+          "tp": 56
+        },
+        "total_errors": 17
+      }
+    },
+    {
+      "stage": "M3: Hierarchical 4-Mode (23 feat)",
+      "stage_short": "M3: Hier 4-Mode",
+      "cv_f1": 0.9126984126984127,
+      "cv_pr_auc": 0.918581428470512,
+      "test_metrics": {
+        "accuracy": 0.9945,
+        "precision": 1.0,
+        "recall": 0.8382352941176471,
+        "f1": 0.912,
+        "roc_auc": 0.9768565034709535,
+        "pr_auc": 0.902062452747959,
+        "brier_score": 0.005595860559510673,
+        "confusion_matrix": {
+          "tn": 1932,
+          "fp": 0,
+          "fn": 11,
+          "tp": 57
+        },
+        "total_errors": 11
+      }
+    },
+    {
+      "stage": "M4: Tuned LightGBM v2 (23 feat)",
+      "stage_short": "M4: LGB v2 (23f)",
+      "cv_f1": 0.9177808305549859,
+      "cv_pr_auc": 0.9258759309002611,
+      "test_metrics": {
+        "accuracy": 0.9945,
+        "precision": 1.0,
+        "recall": 0.8382352941176471,
+        "f1": 0.912,
+        "roc_auc": 0.9768869504323467,
+        "pr_auc": 0.9087120646145287,
+        "brier_score": 0.006685646358723226,
+        "confusion_matrix": {
+          "tn": 1932,
+          "fp": 0,
+          "fn": 11,
+          "tp": 57
+        },
+        "total_errors": 11
+      }
+    },
+    {
+      "stage": "M5: OOF Soft Voting Ensemble v2 (0.7, 0.2, 0.1)",
+      "stage_short": "M5: Ensemble v2",
+      "cv_f1": 0.9181636726546906,
+      "cv_pr_auc": 0.9248532033602106,
+      "test_metrics": {
+        "accuracy": 0.9945,
+        "precision": 1.0,
+        "recall": 0.8382352941176471,
+        "f1": 0.912,
+        "roc_auc": 0.9844948849104859,
+        "pr_auc": 0.9085054505548602,
+        "brier_score": 0.006056205412969556,
+        "confusion_matrix": {
+          "tn": 1932,
+          "fp": 0,
+          "fn": 11,
+          "tp": 57
+        },
+        "total_errors": 11
+      }
+    }
+  ],
+  "v2_tuned_models": {
+    "LightGBM v2": {
+      "params": {
+        "n_estimators": 150,
+        "learning_rate": 0.010182206042158855,
+        "num_leaves": 12,
+        "max_depth": 7,
+        "min_child_samples": 21,
+        "subsample": 0.8863896011676151,
+        "colsample_bytree": 0.6955267353210739,
+        "reg_alpha": 0.016349970841053496,
+        "reg_lambda": 0.6006354211631018,
+        "scale_pos_weight": 1.0136749457703114,
+        "random_state": 42,
+        "n_jobs": -1,
+        "verbose": -1
+      },
+      "cv_5fold": {
+        "precision": {
+          "mean": 1.0,
+          "std": 0.0
+        },
+        "recall": {
+          "mean": 0.8486195286195286,
+          "std": 0.03220136960759544
+        },
+        "f1": {
+          "mean": 0.9177808305549859,
+          "std": 0.0189918871579799
+        },
+        "roc_auc": {
+          "mean": 0.9825464309125745,
+          "std": 0.008520006928700204
+        },
+        "pr_auc": {
+          "mean": 0.9258759309002611,
+          "std": 0.020063207390874048
+        }
+      },
+      "oof_optimal_threshold": 0.5,
+      "oof_best_f1": 0.9181636726546906,
+      "test_at_050": {
+        "accuracy": 0.9945,
+        "precision": 1.0,
+        "recall": 0.8382352941176471,
+        "f1": 0.912,
+        "roc_auc": 0.9768869504323467,
+        "pr_auc": 0.9087120646145287,
+        "brier_score": 0.006685646358723226,
+        "confusion_matrix": {
+          "tn": 1932,
+          "fp": 0,
+          "fn": 11,
+          "tp": 57
+        },
+        "total_errors": 11
+      },
+      "test_at_oof_thresh": {
+        "accuracy": 0.9945,
+        "precision": 1.0,
+        "recall": 0.8382352941176471,
+        "f1": 0.912,
+        "roc_auc": 0.9768869504323467,
+        "pr_auc": 0.9087120646145287,
+        "brier_score": 0.006685646358723226,
+        "confusion_matrix": {
+          "tn": 1932,
+          "fp": 0,
+          "fn": 11,
+          "tp": 57
+        },
+        "total_errors": 11
+      }
+    },
+    "XGBoost v2": {
+      "params": {
+        "n_estimators": 200,
+        "learning_rate": 0.07428805110355512,
+        "max_depth": 6,
+        "min_child_weight": 3,
+        "subsample": 0.9763199668871381,
+        "colsample_bytree": 0.9404917212611119,
+        "gamma": 1.8843628256317426,
+        "reg_alpha": 0.007199080394046799,
+        "reg_lambda": 0.05038677755719248,
+        "scale_pos_weight": 0.9891277016832243,
+        "random_state": 42,
+        "n_jobs": -1,
+        "eval_metric": "logloss"
+      },
+      "cv_5fold": {
+        "precision": {
+          "mean": 1.0,
+          "std": 0.0
+        },
+        "recall": {
+          "mean": 0.8486195286195286,
+          "std": 0.03220136960759544
+        },
+        "f1": {
+          "mean": 0.9177808305549859,
+          "std": 0.0189918871579799
+        },
+        "roc_auc": {
+          "mean": 0.9843975047747389,
+          "std": 0.012761845971228623
+        },
+        "pr_auc": {
+          "mean": 0.9241889813878933,
+          "std": 0.02291970651799654
+        }
+      },
+      "oof_optimal_threshold": 0.5,
+      "oof_best_f1": 0.9181636726546906,
+      "test_at_050": {
+        "accuracy": 0.9945,
+        "precision": 1.0,
+        "recall": 0.8382352941176471,
+        "f1": 0.912,
+        "roc_auc": 0.9860020094994519,
+        "pr_auc": 0.9031365530746804,
+        "brier_score": 0.005555792711675167,
+        "confusion_matrix": {
+          "tn": 1932,
+          "fp": 0,
+          "fn": 11,
+          "tp": 57
+        },
+        "total_errors": 11
+      },
+      "test_at_oof_thresh": {
+        "accuracy": 0.9945,
+        "precision": 1.0,
+        "recall": 0.8382352941176471,
+        "f1": 0.912,
+        "roc_auc": 0.9860020094994519,
+        "pr_auc": 0.9031365530746804,
+        "brier_score": 0.005555792711675167,
+        "confusion_matrix": {
+          "tn": 1932,
+          "fp": 0,
+          "fn": 11,
+          "tp": 57
+        },
+        "total_errors": 11
+      }
+    },
+    "Random Forest v2": {
+      "params": {
+        "n_estimators": 250,
+        "max_depth": 6,
+        "min_samples_split": 2,
+        "min_samples_leaf": 4,
+        "max_features": "sqrt",
+        "class_weight": null,
+        "random_state": 42,
+        "n_jobs": -1
+      },
+      "cv_5fold": {
+        "precision": {
+          "mean": 1.0,
+          "std": 0.0
+        },
+        "recall": {
+          "mean": 0.8486195286195286,
+          "std": 0.03220136960759544
+        },
+        "f1": {
+          "mean": 0.9177808305549859,
+          "std": 0.0189918871579799
+        },
+        "roc_auc": {
+          "mean": 0.9841250494199162,
+          "std": 0.01329700861518444
+        },
+        "pr_auc": {
+          "mean": 0.9223089191563562,
+          "std": 0.01774794966442185
+        }
+      },
+      "oof_optimal_threshold": 0.5,
+      "oof_best_f1": 0.9181636726546906,
+      "test_at_050": {
+        "accuracy": 0.9945,
+        "precision": 1.0,
+        "recall": 0.8382352941176471,
+        "f1": 0.912,
+        "roc_auc": 0.9861923030081597,
+        "pr_auc": 0.9101313189896787,
+        "brier_score": 0.005328701956344821,
+        "confusion_matrix": {
+          "tn": 1932,
+          "fp": 0,
+          "fn": 11,
+          "tp": 57
+        },
+        "total_errors": 11
+      },
+      "test_at_oof_thresh": {
+        "accuracy": 0.9945,
+        "precision": 1.0,
+        "recall": 0.8382352941176471,
+        "f1": 0.912,
+        "roc_auc": 0.9861923030081597,
+        "pr_auc": 0.9101313189896787,
+        "brier_score": 0.005328701956344821,
+        "confusion_matrix": {
+          "tn": 1932,
+          "fp": 0,
+          "fn": 11,
+          "tp": 57
+        },
+        "total_errors": 11
+      }
+    }
+  },
+  "hierarchical_4mode_test": {
+    "accuracy": 0.9945,
+    "precision": 1.0,
+    "recall": 0.8382352941176471,
+    "f1": 0.912,
+    "roc_auc": 0.9768565034709535,
+    "pr_auc": 0.902062452747959,
+    "brier_score": 0.005595860559510673,
+    "confusion_matrix": {
+      "tn": 1932,
+      "fp": 0,
+      "fn": 11,
+      "tp": 57
+    },
+    "total_errors": 11
+  },
+  "oof_ensemble_v2": {
+    "weights": [
+      0.7,
+      0.2,
+      0.1
+    ],
+    "oof_optimal_threshold": 0.5,
+    "cv_f1_at_050": 0.9181636726546906,
+    "cv_pr_auc": 0.9248532033602106,
+    "test_metrics": {
+      "accuracy": 0.9945,
+      "precision": 1.0,
+      "recall": 0.8382352941176471,
+      "f1": 0.912,
+      "roc_auc": 0.9844948849104859,
+      "pr_auc": 0.9085054505548602,
+      "brier_score": 0.006056205412969556,
+      "confusion_matrix": {
+        "tn": 1932,
+        "fp": 0,
+        "fn": 11,
+        "tp": 57
+      },
+      "total_errors": 11
+    }
+  }
+}
