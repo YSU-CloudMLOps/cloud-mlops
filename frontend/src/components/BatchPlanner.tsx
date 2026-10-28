@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { ClipboardCheck, Wrench, Play, AlertTriangle } from 'lucide-react';
-import type { EquipmentSnapshot, PredictionResponse, ProductType, SensorInput } from '../types';
+import type { EquipmentSnapshot, PredictionResponse, ProductType, SensorInput, SupervisorLogEntry } from '../types';
 import { predictFailure } from '../services/api';
 import { ACTION_LABEL, classifyRisk, recommendAction, TIER_LABEL } from '../utils/risk';
 
 interface BatchPlannerProps {
   equipment: EquipmentSnapshot;
+  onLog: (entry: Omit<SupervisorLogEntry, 'id' | 'timestamp'>) => void;
 }
 
 interface Comparison {
@@ -37,7 +38,7 @@ function decide(c: Comparison): { title: string; detail: string; tone: 'safe' | 
   };
 }
 
-export const BatchPlanner: React.FC<BatchPlannerProps> = ({ equipment }) => {
+export const BatchPlanner: React.FC<BatchPlannerProps> = ({ equipment, onLog }) => {
   const [type, setType] = useState<ProductType>(equipment.sensors.type);
   const [rpm, setRpm] = useState<number>(equipment.sensors.rotational_speed_rpm);
   const [torque, setTorque] = useState<number>(equipment.sensors.torque_nm);
@@ -62,7 +63,16 @@ export const BatchPlanner: React.FC<BatchPlannerProps> = ({ equipment }) => {
         predictFailure(base, equipment.id),
         predictFailure({ ...base, tool_wear_min: 0 }, equipment.id),
       ]);
-      setComparison({ keep, replaced });
+      const result = { keep, replaced };
+      setComparison(result);
+      onLog({
+        kind: '투입 시뮬레이션',
+        equipmentId: equipment.id,
+        condition: `${type}등급 · ${rpm}rpm · ${torque}Nm · 마모 ${wear}min`,
+        probability: keep.failure_probability,
+        action: recommendAction(keep.failure_probability),
+        note: `${decide(result).title} (교체 시 ${(replaced.failure_probability * 100).toFixed(1)}%)`,
+      });
     } catch (err: any) {
       setError(err?.message || '알 수 없는 오류가 발생했습니다.');
       setComparison(null);

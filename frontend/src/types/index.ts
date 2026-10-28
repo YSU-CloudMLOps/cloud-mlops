@@ -52,3 +52,14 @@ export interface EquipmentSnapshot {
   currentJob: string;
   sensors: SensorInput;
 }
+
+export interface SupervisorLogEntry {
+  id: string;
+  timestamp: string;
+  kind: '전체 진단' | '투입 시뮬레이션';
+  equipmentId: string;
+  condition: string;
+  probability: number;
+  action: MaintenanceAction;
+  note: string;
+}
