@@ -28,15 +28,20 @@ export async function fetchHealth(): Promise<HealthResponse> {
   }
 }
 
-export async function predictFailure(payload: SensorInput): Promise<PredictionResponse> {
+export async function predictFailure(
+  payload: SensorInput,
+  equipmentId?: string,
+): Promise<PredictionResponse> {
   const url = `${API_BASE_URL}/predict`;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (equipmentId) headers['X-Equipment-ID'] = equipmentId;
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -64,10 +69,7 @@ export async function predictFailure(payload: SensorInput): Promise<PredictionRe
       const fallbackUrl = 'http://127.0.0.1:8000/predict';
       const fallbackResp = await fetch(fallbackUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
         body: JSON.stringify(payload),
       });
       if (fallbackResp.ok) {
