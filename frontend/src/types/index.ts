@@ -35,3 +35,20 @@ export interface HistoryItem {
   input: SensorInput;
   result: PredictionResponse;
 }
+
+export type UserRole = 'engineer' | 'supervisor';
+
+export type RiskTier = 'SAFE' | 'WARNING' | 'CRITICAL';
+
+export type MaintenanceAction =
+  | 'CONTINUE_NORMAL_OPERATION'
+  | 'PREVENTIVE_INSPECTION'
+  | 'IMMEDIATE_SHUTDOWN_MAINTENANCE';
+
+export interface EquipmentSnapshot {
+  id: string;
+  name: string;
+  line: string;
+  currentJob: string;
+  sensors: SensorInput;
+}

@@ -1287,3 +1287,251 @@
   font-family: var(--font-mono);
   letter-spacing: 0.5px;
 }
+
+/* ==========================================================================
+   Role switch & Persona B (Shift Supervisor) view
+   ========================================================================== */
+.role-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background-color: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+}
+
+.role-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-pill);
+  color: var(--color-body-mid);
+  font-size: 0.85rem;
+}
+
+.role-tab:hover {
+  color: var(--color-ink);
+}
+
+.role-tab.active {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.role-tab-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.role-tab-sub {
+  font-size: 0.65rem;
+  opacity: 0.75;
+}
+
+.btn-compact {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.kpi-box {
+  background-color: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+}
+
+.kpi-box .stat-number small {
+  font-size: 0.8rem;
+  color: var(--color-body-mid);
+}
+
+.kpi-red { color: var(--color-accent-sunset); }
+.kpi-yellow { color: var(--color-accent-sunset-soft); }
+
+.fleet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.fleet-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  text-align: left;
+  padding: 1rem 1.15rem;
+  background-color: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+}
+
+.fleet-item:hover { border-color: var(--color-pill-border); }
+.fleet-item.selected { border-color: var(--color-primary); }
+.fleet-item.tier-critical { border-left: 3px solid var(--color-accent-sunset); }
+.fleet-item.tier-warning { border-left: 3px solid var(--color-accent-sunset-soft); }
+.fleet-item.tier-safe { border-left: 3px solid #34d399; }
+
+.fleet-item-top,
+.scenario-head,
+.fleet-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fleet-id {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+.fleet-sub,
+.fleet-meta {
+  font-size: 0.72rem;
+  color: var(--color-body-mid);
+}
+
+.fleet-prob {
+  font-size: 2rem;
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+
+.risk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-pill-border);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.risk-pill.tier-safe { border-color: rgba(52, 211, 153, 0.4); color: #34d399; background: rgba(52, 211, 153, 0.06); }
+.risk-pill.tier-warning { border-color: rgba(255, 194, 133, 0.4); color: var(--color-accent-sunset-soft); background: rgba(255, 194, 133, 0.06); }
+.risk-pill.tier-critical { border-color: rgba(255, 122, 23, 0.4); color: var(--color-accent-sunset); background: rgba(255, 122, 23, 0.06); }
+
+.wear-track {
+  height: 4px;
+  background-color: var(--color-canvas-mid);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.wear-fill { height: 100%; background-color: var(--color-body); }
+.wear-fill.hot { background-color: var(--color-accent-sunset); }
+
+.planner-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.planner-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.planner-field:first-child,
+.planner-submit { grid-column: 1 / -1; }
+
+.planner-submit {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.planner-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(255, 122, 23, 0.4);
+  border-radius: var(--radius-sm);
+  color: var(--color-accent-sunset);
+  font-size: 0.85rem;
+}
+
+.planner-card .planner-error { margin-bottom: 1rem; }
+
+.scenario-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.scenario-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  background-color: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+}
+
+.scenario-box .stat-label { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0; }
+
+.verdict-box {
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-canvas-soft);
+}
+
+.verdict-box.tone-safe { border-color: rgba(52, 211, 153, 0.4); }
+.verdict-box.tone-warning { border-color: rgba(255, 194, 133, 0.4); }
+.verdict-box.tone-critical { border-color: rgba(255, 122, 23, 0.4); }
+.verdict-title { font-size: 1.15rem; margin-bottom: 0.4rem; }
+
+.handover-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+.handover-empty { color: var(--color-body-mid); font-size: 0.85rem; }
+
+.handover-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+}
+
+.handover-item.tier-critical { border-left: 3px solid var(--color-accent-sunset); }
+.handover-item.tier-warning { border-left: 3px solid var(--color-accent-sunset-soft); }
+
+.handover-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .planner-form, .scenario-grid { grid-template-columns: 1fr; }
+  .role-switch { width: 100%; }
+  .role-tab { flex: 1; justify-content: center; }
+}

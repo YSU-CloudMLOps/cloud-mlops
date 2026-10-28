@@ -1,14 +1,16 @@
 import React from 'react';
-import { Activity, CheckCircle2, AlertCircle, RefreshCw, Cpu } from 'lucide-react';
-import type { HealthResponse } from '../types';
+import { Activity, CheckCircle2, AlertCircle, RefreshCw, Cpu, Wrench, ClipboardList } from 'lucide-react';
+import type { HealthResponse, UserRole } from '../types';
 
 interface HeaderProps {
   health: HealthResponse | null;
   loadingHealth: boolean;
   onRefreshHealth: () => void;
+  role: UserRole;
+  onChangeRole: (role: UserRole) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ health, loadingHealth, onRefreshHealth }) => {
+export const Header: React.FC<HeaderProps> = ({ health, loadingHealth, onRefreshHealth, role, onChangeRole }) => {
   return (
     <header className="app-header">
       <div className="header-brand">
@@ -22,6 +24,35 @@ export const Header: React.FC<HeaderProps> = ({ health, loadingHealth, onRefresh
             스마트 CNC 밀링 공작기계 실시간 센서 고장 진단 및 부품 품질 등급(L/M/H)별 조기 경보 인프라
           </p>
         </div>
+      </div>
+
+      <div className="role-switch" role="tablist" aria-label="사용자 역할 선택">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={role === 'engineer'}
+          className={`role-tab ${role === 'engineer' ? 'active' : ''}`}
+          onClick={() => onChangeRole('engineer')}
+        >
+          <Wrench size={14} />
+          <span className="role-tab-text">
+            <span>보전 엔지니어</span>
+            <span className="role-tab-sub">A · 단일 설비 진단</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={role === 'supervisor'}
+          className={`role-tab ${role === 'supervisor' ? 'active' : ''}`}
+          onClick={() => onChangeRole('supervisor')}
+        >
+          <ClipboardList size={14} />
+          <span className="role-tab-text">
+            <span>교대조 반장</span>
+            <span className="role-tab-sub">B · 라인 관제·투입 판단</span>
+          </span>
+        </button>
       </div>
 
       <div className="header-status-area">

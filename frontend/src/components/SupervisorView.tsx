@@ -1,0 +1,107 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ListChecks } from 'lucide-react';
+import { FLEET } from '../constants/fleet';
+import { predictFailure } from '../services/api';
+import { ACTION_LABEL, classifyRisk, recommendAction, TIER_LABEL } from '../utils/risk';
+import { BatchPlanner } from './BatchPlanner';
+import { FleetBoard, type FleetStatus } from './FleetBoard';
+
+export const SupervisorView: React.FC = () => {
+  const [statuses, setStatuses] = useState<FleetStatus[]>(
+    FLEET.map((equipment) => ({ equipment, result: null, error: null })),
+  );
+  const [loading, setLoading] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string>(FLEET[0].id);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const next = await Promise.all(
+      FLEET.map(async (equipment): Promise<FleetStatus> => {
+        try {
+          const result = await predictFailure(equipment.sensors, equipment.id);
+          return { equipment, result, error: null };
+        } catch (err: any) {
+          return { equipment, result: null, error: err?.message || '추론 실패' };
+        }
+      }),
+    );
+    // 위험도 높은 설비를 먼저 보여준다. 진단 실패 설비는 맨 뒤.
+    next.sort((a, b) => (b.result?.failure_probability ?? -1) - (a.result?.failure_probability ?? -1));
+    setStatuses(next);
+    setUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const selected = FLEET.find((f) => f.id === selectedId) ?? FLEET[0];
+  const handover = useMemo(
+    () => statuses.filter((s) => s.result && classifyRisk(s.result.failure_probability) !== 'SAFE'),
+    [statuses],
+  );
+  const failedCount = statuses.filter((s) => s.error).length;
+
+  return (
+    <>
+      <FleetBoard
+        fleet={statuses}
+        loading={loading}
+        updatedAt={updatedAt}
+        selectedId={selectedId}
+        onRefresh={refresh}
+        onSelect={setSelectedId}
+      />
+
+      {failedCount > 0 && (
+        <div className="planner-error">
+          {failedCount}대 설비 진단에 실패했습니다. FastAPI 백엔드가 실행 중인지 확인하세요.
+        </div>
+      )}
+
+      <div className="workspace-grid">
+        {/* key로 설비 변경 시 폼을 해당 설비 센서값으로 초기화 */}
+        <BatchPlanner key={selected.id} equipment={selected} />
+
+        <div className="card handover-card">
+          <div className="card-header">
+            <div>
+              <span className="eyebrow-mono">// SHIFT HANDOVER</span>
+              <div className="card-title-group">
+                <ListChecks size={18} className="card-icon" />
+                <h2 className="card-title">교대 인계 체크리스트</h2>
+              </div>
+            </div>
+          </div>
+          <p className="card-description">
+            정상이 아닌 설비만 우선순위 순으로 모았습니다. 다음 조에 인계할 조치 항목입니다.
+          </p>
+          {handover.length === 0 ? (
+            <p className="handover-empty">조치가 필요한 설비가 없습니다. 모든 설비가 정상 범위입니다.</p>
+          ) : (
+            <ol className="handover-list">
+              {handover.map(({ equipment, result }) => {
+                const prob = result!.failure_probability;
+                const tier = classifyRisk(prob).toLowerCase();
+                return (
+                  <li key={equipment.id} className={`handover-item tier-${tier}`}>
+                    <div>
+                      <span className="fleet-id">{equipment.id}</span>
+                      <div className="fleet-sub">{equipment.line} · {equipment.currentJob}</div>
+                    </div>
+                    <div className="handover-right">
+                      <span className={`risk-pill tier-${tier}`}>{TIER_LABEL[classifyRisk(prob)]} {(prob * 100).toFixed(0)}%</span>
+                      <span className="fleet-sub">{ACTION_LABEL[recommendAction(prob)]}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};

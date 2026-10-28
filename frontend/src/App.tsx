@@ -6,14 +6,16 @@ import { SensorForm } from './components/SensorForm';
 import { DerivedMetrics } from './components/DerivedMetrics';
 import { PredictionResult } from './components/PredictionResult';
 import { HistoryTable } from './components/HistoryTable';
+import { SupervisorView } from './components/SupervisorView';
 import { PRESET_SCENARIOS } from './constants/presets';
 import { fetchHealth, predictFailure } from './services/api';
-import type { HealthResponse, HistoryItem, PredictionResponse, PresetScenario, SensorInput } from './types';
+import type { HealthResponse, HistoryItem, PredictionResponse, PresetScenario, SensorInput, UserRole } from './types';
 import './App.css';
 
 const DEFAULT_INPUT: SensorInput = PRESET_SCENARIOS[0].data;
 
 export const App: React.FC = () => {
+  const [role, setRole] = useState<UserRole>('engineer');
   const [input, setInput] = useState<SensorInput>(DEFAULT_INPUT);
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -98,9 +100,15 @@ export const App: React.FC = () => {
         health={health}
         loadingHealth={loadingHealth}
         onRefreshHealth={checkHealth}
+        role={role}
+        onChangeRole={setRole}
       />
 
       <main className="main-content">
+        {role === 'supervisor' ? (
+          <SupervisorView />
+        ) : (
+        <>
         {/* Target Equipment & Product Scope Section */}
         <section className="section-equipment-info">
           <EquipmentInfo />
@@ -195,6 +203,8 @@ export const App: React.FC = () => {
             onClearHistory={handleClearHistory}
           />
         </section>
+        </>
+        )}
       </main>
 
       <footer className="app-footer">
