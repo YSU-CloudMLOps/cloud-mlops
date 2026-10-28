@@ -1551,3 +1551,17 @@
 .log-note { font-size: 0.8rem; color: var(--color-body-mid); margin-top: 0.15rem; }
 .history-table td, .history-table th { padding-top: 0.8rem; padding-bottom: 0.8rem; }
 .history-table td:last-child { white-space: normal; min-width: 240px; }
+
+.log-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.log-filters { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.log-filter {
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--color-pill-border);
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  color: var(--color-body-mid);
+}
+.log-filter:hover { color: var(--color-ink); border-color: var(--color-pill-border-hover); }
+.log-filter.active { background-color: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
+.handover-item { cursor: pointer; }
+.handover-item:hover { border-color: var(--color-pill-border); }

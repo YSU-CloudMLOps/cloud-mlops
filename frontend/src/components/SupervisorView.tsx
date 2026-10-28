@@ -5,7 +5,19 @@ import { predictFailure } from '../services/api';
 import { ACTION_LABEL, classifyRisk, recommendAction, TIER_LABEL } from '../utils/risk';
 import { BatchPlanner } from './BatchPlanner';
 import { SupervisorLog } from './SupervisorLog';
-import type { SupervisorLogEntry } from '../types';
+import type { SensorInput, SupervisorLogEntry } from '../types';
+
+const LOG_STORAGE_KEY = 'supervisor-activity-log';
+
+function loadStoredLogs(): SupervisorLogEntry[] {
+  try {
+    const raw = localStorage.getItem(LOG_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((l) => l?.sensors) : [];
+  } catch {
+    return [];
+  }
+}
 import { FleetBoard, type FleetStatus } from './FleetBoard';
 
 export const SupervisorView: React.FC = () => {
@@ -15,7 +27,9 @@ export const SupervisorView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>(FLEET[0].id);
-  const [logs, setLogs] = useState<SupervisorLogEntry[]>([]);
+  const [logs, setLogs] = useState<SupervisorLogEntry[]>(loadStoredLogs);
+  // 로그에서 불러온 조건. nonce가 바뀌면 시뮬레이터 폼이 새 값으로 다시 만들어진다.
+  const [loaded, setLoaded] = useState<{ sensors: SensorInput; nonce: number } | null>(null);
 
   const addLogs = useCallback((entries: Omit<SupervisorLogEntry, 'id' | 'timestamp'>[]) => {
     const timestamp = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -51,6 +65,7 @@ export const SupervisorView: React.FC = () => {
           return {
             kind: '전체 진단' as const,
             equipmentId: n.equipment.id,
+            sensors,
             condition: `${sensors.type}등급 · ${sensors.rotational_speed_rpm}rpm · ${sensors.torque_nm}Nm · 마모 ${sensors.tool_wear_min}min`,
             probability: prob,
             action: recommendAction(prob),
@@ -65,6 +80,25 @@ export const SupervisorView: React.FC = () => {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(logs));
+    } catch {
+      // 저장소를 쓸 수 없는 환경(사생활 보호 모드 등)에서는 메모리에서만 유지한다.
+    }
+  }, [logs]);
+
+  const handleSelect = (id: string) => {
+    setLoaded(null);
+    setSelectedId(id);
+  };
+
+  const handleLoadLog = (entry: SupervisorLogEntry) => {
+    setSelectedId(entry.equipmentId);
+    setLoaded({ sensors: entry.sensors, nonce: Date.now() });
+    document.getElementById('batch-planner')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const selected = FLEET.find((f) => f.id === selectedId) ?? FLEET[0];
   const handover = useMemo(
@@ -81,7 +115,7 @@ export const SupervisorView: React.FC = () => {
         updatedAt={updatedAt}
         selectedId={selectedId}
         onRefresh={refresh}
-        onSelect={setSelectedId}
+        onSelect={handleSelect}
       />
 
       {failedCount > 0 && (
@@ -92,7 +126,11 @@ export const SupervisorView: React.FC = () => {
 
       <div className="workspace-grid">
         {/* key로 설비 변경 시 폼을 해당 설비 센서값으로 초기화 */}
-        <BatchPlanner key={selected.id} equipment={selected} onLog={(e) => addLogs([e])} />
+        <BatchPlanner
+          key={`${selected.id}-${loaded?.nonce ?? 0}`}
+          equipment={selected}
+          initial={loaded?.sensors}
+          onLog={(e) => addLogs([e])} />
 
         <div className="card handover-card">
           <div className="card-header">
@@ -115,7 +153,7 @@ export const SupervisorView: React.FC = () => {
                 const prob = result!.failure_probability;
                 const tier = classifyRisk(prob).toLowerCase();
                 return (
-                  <li key={equipment.id} className={`handover-item tier-${tier}`}>
+                  <li key={equipment.id} className={`handover-item tier-${tier}`} onClick={() => handleSelect(equipment.id)} title="클릭하면 투입 시뮬레이터에 이 설비를 적용합니다">
                     <div>
                       <span className="fleet-id">{equipment.id}</span>
                       <div className="fleet-sub">{equipment.line} · {equipment.currentJob}</div>
@@ -132,7 +170,7 @@ export const SupervisorView: React.FC = () => {
         </div>
       </div>
 
-      <SupervisorLog logs={logs} onClear={() => setLogs([])} />
+      <SupervisorLog logs={logs} onClear={() => setLogs([])} onLoad={handleLoadLog} />
     </>
   );
 };
