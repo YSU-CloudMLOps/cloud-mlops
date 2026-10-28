@@ -8,8 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from API.config import Settings, get_settings
 from API.routers.health import router as health_router
+from API.routers.logs import router as logs_router
 from API.routers.predict import router as predict_router
 from API.schemas import Prediction, SensorInput
+from API.services.cloudwatch_service import CloudWatchLogService
 from API.services.feature_service import make_features
 from API.services.model_service import ModelService
 
@@ -28,6 +30,7 @@ async def lifespan(app: FastAPI):
     app.state.model_service = model_service
     app.state.model = model_service.model
     app.state.threshold = settings.threshold
+    app.state.cloudwatch_service = CloudWatchLogService(settings=settings)
     yield
 
 
@@ -50,11 +53,13 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["X-Prediction-ID", "X-Log-Group", "X-Log-Stream"],
     )
 
     # Include modular routers
     application.include_router(health_router, prefix=app_settings.api_prefix)
     application.include_router(predict_router, prefix=app_settings.api_prefix)
+    application.include_router(logs_router, prefix=app_settings.api_prefix)
 
     return application
 

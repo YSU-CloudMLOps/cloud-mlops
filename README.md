@@ -179,24 +179,28 @@ EDA 및 물리 공식 검증을 기반으로 수립된 **7대 공식 전처리 �
 API/
 ├── __init__.py              # 패키지 초기화 및 하위 호환성 심볼 노출
 ├── api.py                   # 메인 진입점, lifespan 컨텍스트 매니저, 전역 CORS 미들웨어 구성
-├── config.py                # Pydantic Settings 기반 환경 변수 관리 (MODEL_PATH, THRESHOLD 등)
-├── schemas.py               # Pydantic v2 데이터 검증 모델 (SensorInput, Prediction, HealthResponse)
+├── config.py                # Pydantic Settings 기반 환경 변수 관리 (MODEL_PATH, CloudWatch, S3 등)
+├── schemas.py               # Pydantic v2 데이터 검증 모델 (SensorInput, Prediction, FeedbackInput, S3ExportRequest 등)
 ├── routers/                 # RESTful 라우팅 모듈
 │   ├── health.py            # GET /health (서비스 상태 및 모델 로딩 검사)
-│   └── predict.py           # POST /predict (센서 데이터 실시간 고장 추론)
+│   ├── predict.py           # POST /predict (센서 데이터 실시간 고장 추론 및 CloudWatch 궤적 로깅)
+│   └── logs.py              # POST /feedback, GET /logs/recent, POST /logs/export-s3 (재학습/RL 로깅 및 S3 내보내기)
 ├── services/                # 비즈니스 로직 계층
-│   ├── feature_service.py   # 센서 입력 기반 물리 파생 피처(온도차, 전력, 스트레인) 실시간 계산
-│   └── model_service.py     # LightGBM Booster 인메모리 로더 및 스레드 세이프 추론 엔진
+│   ├── feature_service.py   # 센서 입력 기반 23개 물리·마진 파생 피처 실시간 계산
+│   ├── model_service.py     # LightGBM Booster 인메모리 로더 및 스레드 세이프 추론 엔진
+│   └── cloudwatch_service.py # CloudWatch 재학습/강화학습(MDP) 구조화 로깅 및 S3 내보내기 서비스
 ├── requirements-api.txt     # 백엔드 프로덕션 의존성 목록
-└── tests/                   # 10개 단위/통합 테스트 스위트
+└── tests/                   # 12개 단위/통합 테스트 스위트
 ```
 
 ### 5.1 FastAPI 백엔드 주요 모듈 및 엔드포인트 명세
-1. **`POST /predict` (실시간 설비 고장 예측)**:
+1. **`POST /predict` (실시간 설비 고장 예측 및 CloudWatch 추론 로깅)**:
    - 클라이언트로부터 6대 센서 수치를 전달받아 `Pydantic` 스키마로 유효 범위를 엄격히 검증합니다.
-   - `feature_service`가 온도차($\Delta T$), 회전 전력($P$), 누적 스트레인 지수를 즉각 계산하여 10개 입력 피처로 변환합니다.
-   - 인메모리에 로드된 `LightGBM` 모델이 고장 확률($0.0 \sim 1.0$)과 이진 분류 라벨($0$: 정상, $1$: 고장)을 반환합니다.
-2. **`GET /health` (서비스 및 모델 헬스체크)**:
+   - `feature_service`가 온도차($\Delta T$), 회전 전력($P$), 누적 스트레인 및 임계 마진을 즉각 계산하여 23개 입력 피처로 변환합니다.
+   - 인메모리에 로드된 `LightGBM` 모델이 고장 확률($0.0 \sim 1.0$)과 이진 분류 라벨($0$: 정상, $1$: 고장)을 반환하며, 응답 헤더(`X-Prediction-ID`)와 함께 CloudWatch Log Stream에 상태($S_t$)·행동($A_t$)·성향 점수($\pi_b$)·불확실성 엔트로피를 자동 기록합니다.
+2. **`POST /feedback` & `POST /logs/export-s3` (재학습·강화학습 피드백 로깅 및 S3 내보내기)**:
+   - 현장 보전 엔지니어의 실제 조치(`operator_action`), 실제 고장 여부($y_{\text{true}}$), 조치 후 센서 상태($S_{t+1}$)를 받아 비용 행렬 기반 강화학습 보상($R_t$)을 산출하여 CloudWatch에 기록하고, Log Stream을 Amazon S3 JSONL 데이터 레이크로 내보냅니다.
+3. **`GET /health` (서비스 및 모델 헬스체크)**:
    - 컨테이너 및 오케스트레이터의 Liveness/Readiness Probe를 위해 서버 상태(`status: ok`), 모델 로드 여부(`model_loaded: true`), 버전 정보를 반환합니다.
 3. **`GET /docs` & `GET /openapi.json` (대화형 API 문서)**:
    - Swagger UI 및 OpenAPI 규격을 통해 브라우저에서 직접 파라미터 테스트가 가능합니다.
@@ -355,6 +359,7 @@ PYTHONPATH=. python -m unittest discover -s API/tests -v
 ---
 
 ## 8. 관련 문서 및 리소스 링크
+- **[9주차 서비스 정의 및 CloudWatch 재학습/강화학습 로깅·S3 내보내기 보고서 (notes/9주차.md)](notes/9주차.md)**: 팀 프로젝트 한 문장 정의(실제 사용자 페르소나), 모델·API 검증, CloudWatch 재학습/강화학습(MDP) 로깅 및 S3 내보내기 보고서
 - **[2차 모델 종합 개선 보고서 (notes/model_improvement_report.md)](notes/model_improvement_report.md)**: IEEE-754 부동소수점 오차 수정, 23개 마진 피처, Optuna 튜닝 및 오탐 0건(F1 0.9120) 달성 보고서
 - **[AWS EC2 배포 가이드 (notes/DOCKER_EC2_GUIDE.md)](notes/DOCKER_EC2_GUIDE.md)**: EC2 보안 그룹 설정, Docker 설치 및 컨테이너 관리 매뉴얼
 - **[Week 06 종합 프로젝트 보고서 (notes/week06.md)](notes/week06.md)**: 하이퍼파라미터 튜닝, 평가 지표, 프론트엔드 구축 및 Docker 연동 상세 보고서
