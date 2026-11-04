@@ -40,9 +40,14 @@ echo "=================================================================="
 # ------------------------------------------------------------------------------
 echo "[1/5] Ensuring IAM Role (${ROLE_NAME}) & Instance Profile (${PROFILE_NAME})..."
 
-if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
-    echo "   -> Creating IAM Role: $ROLE_NAME"
-    aws iam create-role \
+HAS_IAM_PROFILE=false
+
+if aws iam get-instance-profile --instance-profile-name "$PROFILE_NAME" >/dev/null 2>&1; then
+    echo "   -> Existing Instance Profile found: $PROFILE_NAME"
+    HAS_IAM_PROFILE=true
+else
+    echo "   -> Attempting to create IAM Role and Instance Profile..."
+    if aws iam create-role \
         --role-name "$ROLE_NAME" \
         --assume-role-policy-document '{
           "Version": "2012-10-17",
@@ -51,21 +56,25 @@ if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
             "Principal": {"Service": "ec2.amazonaws.com"},
             "Action": "sts:AssumeRole"
           }]
-        }' >/dev/null
+        }' >/dev/null 2>&1; then
 
-    aws iam attach-role-policy \
-        --role-name "$ROLE_NAME" \
-        --policy-arn "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-fi
+        aws iam attach-role-policy \
+            --role-name "$ROLE_NAME" \
+            --policy-arn "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore" >/dev/null 2>&1 || true
 
-if ! aws iam get-instance-profile --instance-profile-name "$PROFILE_NAME" >/dev/null 2>&1; then
-    echo "   -> Creating Instance Profile: $PROFILE_NAME"
-    aws iam create-instance-profile --instance-profile-name "$PROFILE_NAME" >/dev/null
-    aws iam add-role-to-instance-profile \
-        --instance-profile-name "$PROFILE_NAME" \
-        --role-name "$ROLE_NAME" || true
-    echo "   -> Waiting 10s for IAM Instance Profile propagation..."
-    sleep 10
+        if aws iam create-instance-profile --instance-profile-name "$PROFILE_NAME" >/dev/null 2>&1; then
+            aws iam add-role-to-instance-profile \
+                --instance-profile-name "$PROFILE_NAME" \
+                --role-name "$ROLE_NAME" >/dev/null 2>&1 || true
+            echo "   -> Waiting 10s for IAM Instance Profile propagation..."
+            sleep 10
+            HAS_IAM_PROFILE=true
+        fi
+    else
+        echo "   ⚠️ [StudentGuardrails Notice] IAM Role creation is restricted on this student account."
+        echo "      Proceeding without new IAM profile. (User Data self-healing will still function!)"
+        HAS_IAM_PROFILE=false
+    fi
 fi
 
 # ------------------------------------------------------------------------------
@@ -138,13 +147,16 @@ else
     USER_DATA_B64=$(base64 -w 0 "$USER_DATA_FILE")
 fi
 
+IAM_JSON=""
+if [ "$HAS_IAM_PROFILE" = true ]; then
+  IAM_JSON="\"IamInstanceProfile\": {\"Name\": \"${PROFILE_NAME}\"},"
+fi
+
 LT_DATA=$(cat <<EOF
 {
   "ImageId": "${AMI_ID}",
   "InstanceType": "${INSTANCE_TYPE}",
-  "IamInstanceProfile": {
-    "Name": "${PROFILE_NAME}"
-  },
+  ${IAM_JSON}
   "UserData": "${USER_DATA_B64}",
   "NetworkInterfaces": [{
     "DeviceIndex": 0,
