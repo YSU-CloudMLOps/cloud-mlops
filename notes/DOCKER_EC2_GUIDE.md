@@ -253,3 +253,29 @@ GitHub 저장소의 **Settings > Secrets and variables > Actions**에서 다음 
 > - **1순위 (AWS SSM)**: `AWS_ACCESS_KEY_ID` 또는 `AWS_ROLE_ARN` 등록 시 SSM Zero-SSH 모드로 작동합니다.
 > - **2순위 (Legacy SSH)**: AWS 키 없이 기존 `EC2_HOST`, `EC2_SSH_KEY`만 등록된 경우 SSH 모드로 하위 호환 작동합니다.
 > - **3순위 (Dry-Run)**: 아무 시크릿도 등록되지 않은 초기 상태에서는 CI 검증만 수행한 뒤 설정 가이드를 출력하고 정상 종료(Success)합니다.
+
+---
+
+## 8. Auto Scaling Group + User Data 기반 자가 치유(Self-Healing) 인프라 (방안 4)
+
+누군가 실수로 **EC2 인스턴스를 완전히 삭제(Terminate)**하거나 하드웨어 장애로 서버가 유실되더라도, **자동으로 새 EC2를 생성하고 Docker 컨테이너까지 100% 무인 복구**하는 자가 치유(Self-Healing) 아키텍처가 구축되어 있습니다.
+
+### 8.1 구성 스크립트
+1. **[`scripts/ec2_user_data.sh`](../scripts/ec2_user_data.sh) (EC2 부팅 자동화 User Data)**:
+   - 새 EC2 인스턴스가 생성될 때 `cloud-init`이 자동 실행하는 부트스트랩 스크립트입니다.
+   - SSM Agent 활성화 확인 ➔ Git 설치 및 저장소 자동 Clone (`/home/ubuntu/cloud-mlops`) ➔ [`scripts/deploy_ec2.sh`](../scripts/deploy_ec2.sh) 실행(2GB 스왑 생성 + Docker 설치 + 컨테이너 빌드 및 기동)까지 무인으로 완료합니다.
+   - 실행 로그는 `/var/log/mlops-user-data.log`에 실시간 기록됩니다.
+2. **[`scripts/setup_asg_self_healing.sh`](../scripts/setup_asg_self_healing.sh) (ASG + 시작 템플릿 원터치 프로비저닝)**:
+   - IAM 역할(`EC2-SSM-MLOps-Role`), 보안 그룹(`mlops-self-healing-sg`: 80, 8000 포트), 최신 Ubuntu 24.04 LTS AMI 조회, User Data가 탑재된 시작 템플릿(`mlops-launch-template`), 그리고 **Auto Scaling Group(`mlops-self-healing-asg`, Min=1 / Desired=1 / Max=1)**을 한 번에 구성합니다.
+
+### 8.2 CI/CD 파이프라인 내 자동 복구 흐름
+- GitHub Actions 배포 시점에 실행 중인 `mlops-server` 인스턴스가 없으면:
+  1. **중지(`stopped`) 상태인 경우**: `aws ec2 start-instances`로 인스턴스를 자동 기동합니다.
+  2. **완전 삭제(`terminated`) 상태인 경우**: `scripts/setup_asg_self_healing.sh`를 자동 호출하여 Auto Scaling Group을 통해 새 EC2 인스턴스를 즉시 스폰(Spawn)하고, SSM Online 상태가 되는 즉시 최신 코드를 배포합니다.
+
+### 8.3 수동 1회 실행 방법 (AWS CLI 환경)
+```bash
+# 로컬 또는 CloudShell에서 자가 치유 ASG 인프라 즉시 구축
+chmod +x scripts/ec2_user_data.sh scripts/setup_asg_self_healing.sh
+./scripts/setup_asg_self_healing.sh
+```
