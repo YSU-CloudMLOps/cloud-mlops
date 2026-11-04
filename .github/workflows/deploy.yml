@@ -70,35 +70,217 @@ jobs:
           docker compose build --parallel
 
   # ============================================================================
-  # 2. CD: AWS EC2 Continuous Deployment
+  # 2. CD: AWS Systems Manager (SSM) Zero-SSH Continuous Deployment
+  #    - Solves Dynamic IP changes (No IP required, targets by Tag/Instance ID)
+  #    - Solves EC2 deletion/recreation (Auto-discovers new instance or skips safely)
+  #    - Eliminates SSH Port 22 exposure & PEM key management
   # ============================================================================
   deploy-ec2:
-    name: 🚀 Deploy to AWS EC2
+    name: 🚀 Deploy to AWS EC2 (SSM Zero-SSH)
     needs: test-and-build
     runs-on: ubuntu-latest
     if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test')) || github.event_name == 'workflow_dispatch'
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: 📥 Check out repository code
         uses: actions/checkout@v4
 
-      - name: 🔍 Check EC2 Deployment Secrets Availability
-        id: check-secrets
+      - name: 🔍 Detect Deployment Mode (AWS SSM vs Legacy SSH vs Dry-Run)
+        id: detect-mode
         env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
-          if [ -n "$EC2_HOST" ] && [ -n "$EC2_SSH_KEY" ]; then
-            echo "configured=true" >> $GITHUB_OUTPUT
-            echo "✅ EC2_HOST and EC2_SSH_KEY secrets are detected."
+          if [ -n "$AWS_ROLE_ARN" ]; then
+            echo "mode=ssm-oidc" >> $GITHUB_OUTPUT
+            echo "✅ Mode Selected: AWS SSM Run Command (via OIDC IAM Role)"
+          elif [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "mode=ssm-keys" >> $GITHUB_OUTPUT
+            echo "✅ Mode Selected: AWS SSM Run Command (via IAM Access Keys)"
+          elif [ -n "$EC2_HOST" ] && [ -n "$EC2_SSH_KEY" ]; then
+            echo "mode=ssh-legacy" >> $GITHUB_OUTPUT
+            echo "✅ Mode Selected: Legacy SSH Deployment"
           else
-            echo "configured=false" >> $GITHUB_OUTPUT
-            echo "⚠️ EC2 deployment secrets (EC2_HOST, EC2_SSH_KEY) are not set yet."
+            echo "mode=dry-run" >> $GITHUB_OUTPUT
+            echo "ℹ️ Mode Selected: Dry-Run (Pending AWS SSM credentials setup)"
           fi
 
-      # Case A: Execute remote deployment via SSH when secrets are configured
-      - name: 🌐 Execute Remote Deployment on AWS EC2
-        if: steps.check-secrets.outputs.configured == 'true'
+      # ------------------------------------------------------------------------
+      # Mode A (Recommended - Option 3): AWS SSM Run Command
+      # ------------------------------------------------------------------------
+      - name: 🔑 Configure AWS Credentials (OIDC)
+        if: steps.detect-mode.outputs.mode == 'ssm-oidc'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-2' }}
+
+      - name: 🔑 Configure AWS Credentials (IAM Keys)
+        if: steps.detect-mode.outputs.mode == 'ssm-keys'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-2' }}
+
+      - name: 🔎 Discover Active SSM-Managed EC2 Instance (Tag & Online Check)
+        id: discover-ec2
+        if: startsWith(steps.detect-mode.outputs.mode, 'ssm-')
+        env:
+          TARGET_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          TARGET_TAG_KEY: ${{ secrets.EC2_TAG_KEY || 'Name' }}
+          TARGET_TAG_VALUE: ${{ secrets.EC2_TAG_VALUE || 'mlops-server' }}
+        run: |
+          echo "=================================================================="
+          echo "🔎 Searching for active EC2 instance via AWS Systems Manager..."
+          echo "=================================================================="
+
+          INSTANCE_ID=""
+
+          # 1. Explicit Instance ID override if provided
+          if [ -n "$TARGET_INSTANCE_ID" ]; then
+            ONLINE_CHECK=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$TARGET_INSTANCE_ID" "Key=PingStatus,Values=Online" \
+              --query "InstanceInformationList[0].InstanceId" --output text 2>/dev/null || echo "None")
+            if [ "$ONLINE_CHECK" != "None" ] && [ -n "$ONLINE_CHECK" ]; then
+              INSTANCE_ID="$ONLINE_CHECK"
+              echo "✅ Found explicitly configured SSM Online instance: $INSTANCE_ID"
+            fi
+          fi
+
+          # 2. Discover by EC2 Tag (default: tag:Name=mlops-server) & running state
+          if [ -z "$INSTANCE_ID" ]; then
+            TAGGED_IDS=$(aws ec2 describe-instances \
+              --filters "Name=tag:${TARGET_TAG_KEY},Values=${TARGET_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+              --query "Reservations[].Instances[].InstanceId" --output text 2>/dev/null || echo "")
+
+            for CANDIDATE in $TAGGED_IDS; do
+              ONLINE_CHECK=$(aws ssm describe-instance-information \
+                --filters "Key=InstanceIds,Values=$CANDIDATE" "Key=PingStatus,Values=Online" \
+                --query "InstanceInformationList[0].InstanceId" --output text 2>/dev/null || echo "None")
+              if [ "$ONLINE_CHECK" != "None" ] && [ -n "$ONLINE_CHECK" ]; then
+                INSTANCE_ID="$ONLINE_CHECK"
+                echo "✅ Discovered running SSM Online instance by tag (${TARGET_TAG_KEY}=${TARGET_TAG_VALUE}): $INSTANCE_ID"
+                break
+              fi
+            done
+          fi
+
+          # 3. Fallback: Auto-select if there is exactly 1 online SSM EC2 instance in the region
+          if [ -z "$INSTANCE_ID" ]; then
+            ALL_ONLINE=$(aws ssm describe-instance-information \
+              --filters "Key=PingStatus,Values=Online" "Key=ResourceType,Values=EC2Instance" \
+              --query "InstanceInformationList[].InstanceId" --output text 2>/dev/null || echo "")
+            COUNT=$(echo "$ALL_ONLINE" | wc -w | tr -d ' ')
+            if [ "$COUNT" -eq "1" ]; then
+              INSTANCE_ID="$ALL_ONLINE"
+              echo "✅ Discovered single active SSM Online EC2 instance in region: $INSTANCE_ID"
+            fi
+          fi
+
+          # 4. Graceful handling when EC2 is stopped, deleted (terminated), or SSM role is missing
+          if [ -z "$INSTANCE_ID" ]; then
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "=================================================================="
+            echo "⚠️ [GRACEFUL SKIP] No running/online SSM EC2 instance was found."
+            echo "   - The EC2 instance may be stopped or deleted (terminated)."
+            echo "   - Or the IAM Role (AmazonSSMManagedInstanceCore) is not attached."
+            echo "   - Pipeline will finish cleanly without failing."
+            echo "=================================================================="
+          else
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 Execute Zero-SSH Deployment via AWS SSM Run Command
+        if: startsWith(steps.detect-mode.outputs.mode, 'ssm-') && steps.discover-ec2.outputs.found == 'true'
+        env:
+          INSTANCE_ID: ${{ steps.discover-ec2.outputs.instance_id }}
+          TARGET_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -e
+          echo "=================================================================="
+          echo "🚀 Dispatching SSM Run Command to Instance: $INSTANCE_ID"
+          echo "   Branch: $TARGET_BRANCH (IP-independent / Port 22 Closed Ready)"
+          echo "=================================================================="
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "GitHub Actions CI/CD Auto-Deploy ($TARGET_BRANCH)" \
+            --timeout-seconds 900 \
+            --parameters commands="[
+              \"set -e\",
+              \"export DEBIAN_FRONTEND=noninteractive\",
+              \"DEPLOY_USER=\$(id -un 1000 2>/dev/null || echo ubuntu)\",
+              \"DEPLOY_DIR=/home/\$DEPLOY_USER/cloud-mlops\",
+              \"if [ ! -d /home/\$DEPLOY_USER ]; then DEPLOY_DIR=/opt/cloud-mlops; fi\",
+              \"echo '▶ Target deployment directory:' \$DEPLOY_DIR\",
+              \"if [ ! -d \$DEPLOY_DIR/.git ]; then\",
+              \"  git clone https://github.com/YSU-CloudMLOps/cloud-mlops.git \$DEPLOY_DIR\",
+              \"  cd \$DEPLOY_DIR\",
+              \"else\",
+              \"  cd \$DEPLOY_DIR\",
+              \"  git config --global --add safe.directory \$DEPLOY_DIR || true\",
+              \"  git fetch --all --prune\",
+              \"fi\",
+              \"git checkout $TARGET_BRANCH\",
+              \"git reset --hard origin/$TARGET_BRANCH\",
+              \"git pull origin $TARGET_BRANCH\",
+              \"if [ ! -f .env ]; then cp .env.example .env; fi\",
+              \"chmod +x scripts/deploy_ec2.sh\",
+              \"./scripts/deploy_ec2.sh\",
+              \"chown -R \$DEPLOY_USER:\$DEPLOY_USER \$DEPLOY_DIR 2>/dev/null || true\"
+            ]" \
+            --query "Command.CommandId" --output text)
+
+          echo "⏳ Waiting for SSM Command [$COMMAND_ID] to finish on $INSTANCE_ID..."
+
+          for i in {1..90}; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "Status" --output text 2>/dev/null || echo "Pending")
+
+            echo "   [$i/90] Current SSM Status: $STATUS"
+            if [ "$STATUS" == "Success" ]; then
+              echo "✅ SSM Deployment Succeeded!"
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query "StandardOutputContent" --output text
+              exit 0
+            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ] || [ "$STATUS" == "TimedOut" ]; then
+              echo "❌ SSM Deployment Failed with status: $STATUS"
+              echo "--- STDOUT ---"
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query "StandardOutputContent" --output text || true
+              echo "--- STDERR ---"
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query "StandardErrorContent" --output text || true
+              exit 1
+            fi
+            sleep 10
+          done
+
+          echo "❌ Timed out waiting for SSM command execution."
+          exit 1
+
+      # ------------------------------------------------------------------------
+      # Mode B (Fallback): Legacy SSH Deployment
+      # ------------------------------------------------------------------------
+      - name: 🌐 Execute Legacy SSH Deployment on AWS EC2
+        if: steps.detect-mode.outputs.mode == 'ssh-legacy'
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -110,59 +292,37 @@ jobs:
           script: |
             set -e
             DEPLOY_DIR="$HOME/cloud-mlops"
-            echo "=================================================================="
-            echo "▶ Deploying branch [${{ github.ref_name }}] on EC2: $(hostname)"
-            echo "=================================================================="
-            
-            # Clone if not present, otherwise pull latest changes
             if [ ! -d "$DEPLOY_DIR/.git" ]; then
-              echo "[*] Cloning repository to $DEPLOY_DIR..."
               git clone https://github.com/YSU-CloudMLOps/cloud-mlops.git "$DEPLOY_DIR"
               cd "$DEPLOY_DIR"
             else
               cd "$DEPLOY_DIR"
-              echo "[*] Fetching latest commits from origin..."
               git fetch --all --prune
             fi
-
-            # Checkout and pull the target branch
             git checkout ${{ github.ref_name }}
             git reset --hard origin/${{ github.ref_name }}
             git pull origin ${{ github.ref_name }}
-
-            # Ensure .env exists
-            if [ ! -f .env ]; then
-              echo "[*] Initializing .env from .env.example..."
-              cp .env.example .env
-            fi
-
-            # Execute automated deployment script
+            if [ ! -f .env ]; then cp .env.example .env; fi
             chmod +x scripts/deploy_ec2.sh
-            echo "[*] Running deploy_ec2.sh..."
             sudo ./scripts/deploy_ec2.sh
 
-            echo "=================================================================="
-            echo "✅ GitHub Actions Automated Deployment Finished Successfully!"
-            echo "=================================================================="
-
-      # Case B: Informative Dry-Run Notification when secrets are not configured yet
-      - name: ℹ️ Deployment Guide & Dry-Run Notice
-        if: steps.check-secrets.outputs.configured != 'true'
+      # ------------------------------------------------------------------------
+      # Mode C: Informative Dry-Run Guide when secrets are not configured yet
+      # ------------------------------------------------------------------------
+      - name: ℹ️ Deployment Guide & Dry-Run Notice (AWS SSM Setup)
+        if: steps.detect-mode.outputs.mode == 'dry-run'
         run: |
           echo "================================================================================"
-          echo "ℹ️  GITHUB ACTIONS CI/CD NOTICE: SECRETS PENDING SETUP"
+          echo "ℹ️  GITHUB ACTIONS CI/CD NOTICE: AWS SSM ZERO-SSH DEPLOYMENT READY"
           echo "================================================================================"
           echo "All CI tests (12 Backend unit/integration tests + React 19 Frontend build"
           echo "+ Docker Compose build) passed with 100% success!"
           echo ""
-          echo "To enable automatic zero-touch CD deployment to your AWS EC2 instance:"
-          echo "1. Go to your GitHub Repository -> Settings -> Secrets and variables -> Actions"
-          echo "2. Add the following repository secrets:"
-          echo "   - EC2_HOST     : Public IP or DNS of your AWS EC2 instance (e.g. 13.125.x.x)"
-          echo "   - EC2_USERNAME : SSH username (default: 'ubuntu' or 'ec2-user')"
-          echo "   - EC2_SSH_KEY  : Content of your EC2 SSH private key (.pem file)"
-          echo "   - EC2_PORT     : SSH Port (default: 22, optional)"
-          echo ""
-          echo "Once registered, every push to 'main' or 'test' will automatically update"
-          echo "and reload the Docker containers on your EC2 instance."
+          echo "To enable IP-independent, Zero-SSH automatic deployment via AWS SSM:"
+          echo "1. Attach IAM Role with 'AmazonSSMManagedInstanceCore' policy to your EC2."
+          echo "2. Tag your EC2 instance with Name=mlops-server (optional if only 1 EC2 exists)."
+          echo "3. Add the following GitHub Repository Secrets:"
+          echo "   - AWS_ACCESS_KEY_ID     : AWS IAM Access Key with SSM/EC2 permissions"
+          echo "   - AWS_SECRET_ACCESS_KEY : AWS IAM Secret Key"
+          echo "   - AWS_REGION            : AWS Region (default: ap-northeast-2)"
           echo "================================================================================"

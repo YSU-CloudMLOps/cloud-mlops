@@ -188,11 +188,19 @@ docker inspect --format='{{json .State.Health}}' mlops-frontend | jq
 
 ---
 
-## 7. GitHub Actions 기반 CI/CD 자동 배포 (Continuous Deployment)
+## 7. GitHub Actions + AWS SSM 기반 Zero-SSH 자동 배포 (Continuous Deployment)
 
-본 저장소는 코드 푸시 시 자동으로 테스트와 빌드를 수행하고, 설정된 AWS EC2 인스턴스로 즉시 원격 배포되는 **GitHub Actions CI/CD 파이프라인([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml))**을 갖추고 있습니다.
+본 저장소는 코드 푸시 시 자동으로 테스트와 빌드를 수행하고, **AWS Systems Manager (SSM) Run Command**를 통해 **IP 변경이나 EC2 삭제/재생성에 영향받지 않고** 안전하게 무중단 배포되는 **CI/CD 파이프라인([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml))**을 갖추고 있습니다.
 
-### 7.1 파이프라인 아키텍처
+### 7.1 왜 AWS SSM (Zero-SSH) 아키텍처인가?
+기존의 SSH 직접 접속 방식(`EC2_HOST` IP 고정)과 달리 다음과 같은 압도적인 이점을 제공합니다:
+1. **IP 변경 완벽 대응 (IP-Independent)**: EC2를 중지 후 재시작하여 퍼블릭 IP가 바뀌더라도, AWS 내부 인스턴스 태그(`Name=mlops-server`) 및 SSM 온라인 상태를 기준으로 타겟을 동적 탐색하므로 배포가 절대 깨지지 않습니다.
+2. **인스턴스 삭제/재생성 탄력성 (Resilient to Termination)**:
+   - **EC2 삭제 시**: 활성 인스턴스가 없음을 자동 감지하여 파이프라인이 에러(Red)로 뻗지 않고 `⚠️ [GRACEFUL SKIP]` 로그를 남기며 안전하게 종료됩니다.
+   - **EC2 재생성 시**: 새 EC2에 IAM 역할만 연결하면 Secrets 수정 없이 다음 푸시부터 새 서버에 `git clone` 및 Docker 기동을 자동으로 수행합니다.
+3. **최고 수준의 보안 (No Inbound Port 22 & No PEM Key)**: 보안 그룹에서 **22번(SSH) 인바운드 포트를 완전히 폐쇄**할 수 있으며, `.pem` 비밀키 유출 위험이 원천 제거됩니다.
+
+### 7.2 파이프라인 아키텍처
 
 ```
 [개발자 git push (main/test)]
@@ -208,27 +216,40 @@ docker inspect --format='{{json .State.Health}}' mlops-frontend | jq
            │ (CI 검증 100% 통과 시)
            ▼
 ┌────────────────────────────────────────────────────────┐
-│ 2. CD (Deploy Job - SSH to AWS EC2)                   │
-│   ├─ GitHub Repository Secrets 확인                    │
-│   ├─ EC2 원격 서버 SSH 보안 접속                       │
-│   ├─ 최신 브랜치 코드 git pull / reset                │
-│   └─ deploy_ec2.sh 원터치 무중단 배포 스크립트 실행    │
+│ 2. CD (Deploy Job - AWS Systems Manager Run Command)   │
+│   ├─ AWS IAM 자격 증명 구성 (OIDC Role 또는 IAM Key)   │
+│   ├─ SSM Online & Running 상태인 EC2 동적 탐색         │
+│   │   (삭제/중지 시 에러 없이 Graceful Skip 처리)      │
+│   ├─ aws ssm send-command로 배포 명령 암호화 하달      │
+│   └─ deploy_ec2.sh 무중단 배포 실행 및 실시간 로그 수집│
 └────────────────────────────────────────────────────────┘
            │
            ▼
  [AWS EC2 프로덕션 서비스 갱신 완료 (포트 80/8000)]
 ```
 
-### 7.2 GitHub Repository Secrets 설정 가이드 (1회 설정)
+### 7.3 설정 가이드 (AWS 콘솔 + GitHub Secrets 1회 설정)
 
-GitHub 저장소의 **Settings > Secrets and variables > Actions**에서 **New repository secret** 버튼을 눌러 다음 4개 항목을 등록합니다:
+#### Step 1: EC2 인스턴스에 SSM IAM 역할(Role) 연결
+Ubuntu 22.04 / 24.04 및 Amazon Linux 이미지에는 이미 **SSM Agent가 기본 설치**되어 있습니다. 권한만 부여하면 즉시 활성화됩니다.
+1. **AWS 콘솔 > IAM > 역할(Roles) > [역할 만들기]** 클릭
+2. 신뢰할 수 있는 엔터티: **AWS 서비스**, 사용 사례: **EC2** 선택 후 다음
+3. 권한 정책 검색창에 **`AmazonSSMManagedInstanceCore`** 검색 및 체크 후 역할 생성 (예: `EC2-SSM-MLOps-Role`)
+4. **AWS 콘솔 > EC2 > 인스턴스**에서 배포 대상 EC2 선택 ➔ **[작업] > [보안] > [IAM 역할 수정]** 클릭 ➔ 방금 만든 `EC2-SSM-MLOps-Role` 연결 후 저장
+5. (권장) EC2 인스턴스의 `Name` 태그를 **`mlops-server`**로 지정 (계정에 활성 EC2가 1대뿐이면 태그가 없어도 자동 인식됩니다).
 
-| 시크릿 이름 (Secret Name) | 필수 여부  | 권장 값 / 예시                             | 설명                                |
-| :------------------- | :----: | :------------------------------------ | :-------------------------------- |
-| **`EC2_HOST`**       | **필수** | `13.125.xxx.xxx` (또는 퍼블릭 DNS)         | AWS EC2 인스턴스의 퍼블릭 IP 주소           |
-| **`EC2_SSH_KEY`**    | **필수** | `-----BEGIN RSA PRIVATE KEY----- ...` | EC2 생성 시 다운로드받은 `.pem` 키 내용 전문    |
-| **`EC2_USERNAME`**   |   선택   | `ubuntu` (또는 `ec2-user`)              | EC2 OS 접속 사용자 계정명 (기본값: `ubuntu`) |
-| **`EC2_PORT`**       |   선택   | `22`                                  | SSH 접속 포트 (기본값: `22`)             |
+#### Step 2: GitHub Repository Secrets 등록
+GitHub 저장소의 **Settings > Secrets and variables > Actions**에서 다음 항목을 등록합니다:
+
+| 시크릿 이름 (Secret Name) | 필수 여부 | 권장 값 / 예시 | 설명 |
+| :--- | :---: | :--- | :--- |
+| **`AWS_ACCESS_KEY_ID`** | **필수*** | `AKIAIOSFODNN7EXAMPLE` | SSM 및 EC2 조회 권한이 있는 IAM Access Key |
+| **`AWS_SECRET_ACCESS_KEY`** | **필수*** | `wJalrXUtnFEMI/K7MDENG/bPxRfiCY...` | IAM Secret Access Key (*OIDC 사용 시 `AWS_ROLE_ARN`으로 대체 가능) |
+| **`AWS_REGION`** | 선택 | `ap-northeast-2` | AWS 리전 (기본값: `ap-northeast-2`) |
+| **`EC2_TAG_VALUE`** | 선택 | `mlops-server` | 탐색할 EC2의 `Name` 태그 값 (기본값: `mlops-server`) |
 
 > [!TIP]
-> **안전한 Dry-Run 폴백 지원**: Secrets가 아직 등록되지 않은 상태에서 Actions가 실행되더라도 빌드가 실패(Fail)하지 않고, CI 테스트를 100% 검증한 뒤 Secrets 설정 가이드를 친절하게 출력하도록 설계되어 있습니다. Secrets 등록 즉시 다음 푸시부터 무인 배포가 활성화됩니다.
+> **3단계 하이브리드 폴백 지원**:
+> - **1순위 (AWS SSM)**: `AWS_ACCESS_KEY_ID` 또는 `AWS_ROLE_ARN` 등록 시 SSM Zero-SSH 모드로 작동합니다.
+> - **2순위 (Legacy SSH)**: AWS 키 없이 기존 `EC2_HOST`, `EC2_SSH_KEY`만 등록된 경우 SSH 모드로 하위 호환 작동합니다.
+> - **3순위 (Dry-Run)**: 아무 시크릿도 등록되지 않은 초기 상태에서는 CI 검증만 수행한 뒤 설정 가이드를 출력하고 정상 종료(Success)합니다.
