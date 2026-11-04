@@ -184,24 +184,97 @@ jobs:
             fi
           fi
 
-          # 4. Graceful handling when EC2 is stopped, deleted (terminated), or SSM role is missing
+          # 4. Check if instance is missing (stopped or terminated) -> Trigger Option 4 Self-Healing
           if [ -z "$INSTANCE_ID" ]; then
             echo "found=false" >> $GITHUB_OUTPUT
             echo "=================================================================="
-            echo "⚠️ [GRACEFUL SKIP] No running/online SSM EC2 instance was found."
-            echo "   - The EC2 instance may be stopped or deleted (terminated)."
-            echo "   - Or the IAM Role (AmazonSSMManagedInstanceCore) is not attached."
-            echo "   - Pipeline will finish cleanly without failing."
+            echo "⚠️ No running/online SSM EC2 instance found right now."
+            echo "   Proceeding to Option 4: Self-Healing ASG & Auto-Recovery Check..."
             echo "=================================================================="
           else
             echo "found=true" >> $GITHUB_OUTPUT
             echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
           fi
 
-      - name: 🚀 Execute Zero-SSH Deployment via AWS SSM Run Command
-        if: startsWith(steps.detect-mode.outputs.mode, 'ssm-') && steps.discover-ec2.outputs.found == 'true'
+      # ------------------------------------------------------------------------
+      # Option 4: Self-Healing Auto-Recovery (Stopped Instance Wakeup + ASG + Launch Template)
+      # ------------------------------------------------------------------------
+      - name: 🛡️ Self-Healing Infrastructure Recovery (Option 4: ASG + Launch Template)
+        id: self-healing
+        if: startsWith(steps.detect-mode.outputs.mode, 'ssm-') && steps.discover-ec2.outputs.found == 'false'
         env:
-          INSTANCE_ID: ${{ steps.discover-ec2.outputs.instance_id }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'ap-northeast-2' }}
+          TARGET_TAG_KEY: ${{ secrets.EC2_TAG_KEY || 'Name' }}
+          TARGET_TAG_VALUE: ${{ secrets.EC2_TAG_VALUE || 'mlops-server' }}
+          INSTANCE_TYPE: ${{ secrets.EC2_INSTANCE_TYPE || 't3.micro' }}
+        run: |
+          echo "=================================================================="
+          echo "🛡️  [Option 4] Starting Self-Healing EC2 Recovery & ASG Provisioning"
+          echo "=================================================================="
+
+          RECOVERED_ID=""
+
+          # Step A: Check if a tagged instance is simply in 'stopped' state and wake it up
+          STOPPED_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:${TARGET_TAG_KEY},Values=${TARGET_TAG_VALUE}" "Name=instance-state-name,Values=stopped" \
+            --query "Reservations[0].Instances[0].InstanceId" --output text 2>/dev/null || echo "None")
+
+          if [ "$STOPPED_ID" != "None" ] && [ -n "$STOPPED_ID" ]; then
+            echo "🔄 Found stopped EC2 instance ($STOPPED_ID). Starting it automatically..."
+            aws ec2 start-instances --instance-ids "$STOPPED_ID" >/dev/null 2>&1 || true
+          else
+            # Step B: Instance was completely deleted/terminated -> Provision/Sync Self-Healing ASG & Launch Template
+            echo "🚀 No existing instance found (Terminated/Deleted)."
+            echo "   Executing scripts/setup_asg_self_healing.sh to spawn replacement via Auto Scaling Group..."
+            chmod +x scripts/ec2_user_data.sh scripts/setup_asg_self_healing.sh
+            if ./scripts/setup_asg_self_healing.sh; then
+              echo "✅ Self-Healing Auto Scaling Group & Launch Template active!"
+            else
+              echo "⚠️ Could not auto-provision ASG (IAM user may lack autoscaling/iam permissions)."
+            fi
+          fi
+
+          # Step C: Poll up to 180s for the recovered/newly-spawned EC2 instance to become SSM Online
+          echo "⏳ Waiting up to 180s for recovered/spawned EC2 instance to join AWS SSM Online..."
+          for i in {1..18}; do
+            CANDIDATES=$(aws ec2 describe-instances \
+              --filters "Name=tag:${TARGET_TAG_KEY},Values=${TARGET_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+              --query "Reservations[].Instances[].InstanceId" --output text 2>/dev/null || echo "")
+
+            for CID in $CANDIDATES; do
+              ONLINE=$(aws ssm describe-instance-information \
+                --filters "Key=InstanceIds,Values=$CID" "Key=PingStatus,Values=Online" \
+                --query "InstanceInformationList[0].InstanceId" --output text 2>/dev/null || echo "None")
+              if [ "$ONLINE" != "None" ] && [ -n "$ONLINE" ]; then
+                RECOVERED_ID="$ONLINE"
+                break
+              fi
+            done
+
+            if [ -n "$RECOVERED_ID" ]; then
+              echo "✅ Self-Healed EC2 Instance is now Running & SSM Online: $RECOVERED_ID"
+              break
+            fi
+            echo "   [$i/18] Waiting for instance boot & SSM agent registration..."
+            sleep 10
+          done
+
+          if [ -n "$RECOVERED_ID" ]; then
+            echo "recovered=true" >> $GITHUB_OUTPUT
+            echo "instance_id=$RECOVERED_ID" >> $GITHUB_OUTPUT
+          else
+            echo "recovered=false" >> $GITHUB_OUTPUT
+            echo "=================================================================="
+            echo "ℹ️ [SELF-HEALING NOTICE] Replacement instance is either still booting"
+            echo "   via User Data (ec2_user_data.sh) or IAM permissions are restricted."
+            echo "   Pipeline will complete cleanly without failing."
+            echo "=================================================================="
+          fi
+
+      - name: 🚀 Execute Zero-SSH Deployment via AWS SSM Run Command
+        if: startsWith(steps.detect-mode.outputs.mode, 'ssm-') && (steps.discover-ec2.outputs.found == 'true' || steps.self-healing.outputs.recovered == 'true')
+        env:
+          INSTANCE_ID: ${{ steps.discover-ec2.outputs.instance_id || steps.self-healing.outputs.instance_id }}
           TARGET_BRANCH: ${{ github.ref_name }}
         run: |
           set -e

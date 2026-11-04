@@ -370,6 +370,11 @@ THRESHOLD=0.5
 > [!NOTE]
 > **3단계 하이브리드 폴백 지원**: AWS SSM 시크릿(1순위) ➔ 기존 Legacy SSH 시크릿(2순위) ➔ Dry-Run 안내 모드(3순위) 순으로 자동 감지하므로, 시크릿 등록 전에도 CI/CD 파이프라인은 항상 녹색(Success)으로 안전하게 동작합니다.
 
+### 7.2 Auto Scaling Group + User Data 기반 자가 치유(Self-Healing) 인프라
+EC2 인스턴스가 실수로 **완전 삭제(Terminate)**되더라도 자동으로 새 EC2를 스폰하고 Docker 컨테이너까지 무인 기동하는 자가 치유 스크립트가 완비되어 있습니다:
+- **[`scripts/ec2_user_data.sh`](scripts/ec2_user_data.sh)**: 새 EC2 부팅 시 `cloud-init`이 자동 실행하는 User Data 스크립트 (SSM 활성화 ➔ 저장소 Clone ➔ `deploy_ec2.sh` 무인 기동)
+- **[`scripts/setup_asg_self_healing.sh`](scripts/setup_asg_self_healing.sh)**: IAM Role, 보안 그룹(80, 8000), 시작 템플릿(`mlops-launch-template`), 그리고 **Auto Scaling Group(`mlops-self-healing-asg`, Min=1 / Desired=1 / Max=1)**을 원터치로 프로비저닝하는 스크립트 (CI/CD의 `self-healing` 스텝에서도 인스턴스 유실 감지 시 자동 실행됨)
+
 ---
 
 ## 8. 실행 및 배포 가이드 (Quickstart)
