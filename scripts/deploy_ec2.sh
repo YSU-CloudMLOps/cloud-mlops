@@ -3,6 +3,7 @@
 # Cloud MLOps - AWS EC2 Automated Docker Deployment Script
 # ==============================================================================
 set -e
+export DEBIAN_FRONTEND=noninteractive
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'

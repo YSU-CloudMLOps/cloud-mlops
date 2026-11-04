@@ -58,7 +58,7 @@ export const Header: React.FC<HeaderProps> = ({ health, loadingHealth, onRefresh
       <div className="header-status-area">
         <div className="model-chip">
           <Cpu size={14} />
-          <span>LightGBM Tuned (정확도 99.1% · PR-AUC 0.898)</span>
+          <span>LightGBM v2 (정확도 99.45% · 오탐 0건 · F1 0.912)</span>
         </div>
 
         <div className={`status-badge ${health?.model_loaded ? 'online' : 'offline'}`}>

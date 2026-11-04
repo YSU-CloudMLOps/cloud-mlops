@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Layers, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Box, Layers, AlertCircle, ChevronDown, ChevronUp, Users, Clock, Sliders, Target } from 'lucide-react';
 
 export const EquipmentInfo: React.FC = () => {
   const [expanded, setExpanded] = useState<boolean>(false);
@@ -8,10 +8,10 @@ export const EquipmentInfo: React.FC = () => {
     <div className="card equipment-info-card">
       <div className="card-header">
         <div>
-          <span className="eyebrow-mono">// SYSTEM CONTEXT &amp; PRODUCT SCOPE</span>
+          <span className="eyebrow-mono">// SYSTEM CONTEXT &amp; SERVICE DEFINITION</span>
           <div className="card-title-group">
             <Box size={18} className="card-icon" />
-            <h2 className="card-title">예측 대상 설비 및 생산 제품군 안내</h2>
+            <h2 className="card-title">설비 예지보전 AI 서비스 정의 및 생산 제품군 안내</h2>
           </div>
         </div>
         <button
@@ -26,8 +26,55 @@ export const EquipmentInfo: React.FC = () => {
       </div>
 
       <p className="card-description">
-        본 AI 시스템은 <strong>스마트 CNC 밀링 머신(CNC Milling Machine)</strong>에서 고속 절삭 회전(Spindle)을 통해 가공되는 <strong>3대 산업용 부품(L/M/H)</strong>의 고장 위험을 실시간 진단합니다.
+        본 AI 시스템은 <strong>스마트 CNC 밀링 공작기계(CNC Milling Machine)</strong>에서 고속 절삭 회전(Spindle)을 통해 가공되는 <strong>3대 산업용 부품(L/M/H)</strong>의 실시간 가공 데이터를 분석하여 <strong>돌발 셧다운 및 가공 불량을 사전에 차단</strong>하는 예지보전(PdM) 인프라입니다.
       </p>
+
+      {/* 4 Pillars of Service Definition: Who, When, Input, Prediction */}
+      <div className="service-scope-grid">
+        <div className="service-scope-box">
+          <div className="scope-box-header">
+            <Users size={15} className="scope-icon text-accent-blue" />
+            <span className="scope-label">// 1. 누가 쓰는가 (USER)</span>
+          </div>
+          <h4 className="scope-title">설비 보전 엔지니어 &amp; 라인 교대조 반장</h4>
+          <p className="scope-desc">
+            스마트팩토리 가공 라인 보전팀(정비·부하 관리)과 생산관리팀(배치 작업 지시 및 일일 품질 목표 총괄)이 중앙 관제 대시보드와 현장 순찰용 태블릿에서 사용합니다.
+          </p>
+        </div>
+
+        <div className="service-scope-box">
+          <div className="scope-box-header">
+            <Clock size={15} className="scope-icon text-accent-amber" />
+            <span className="scope-label">// 2. 어떤 상황에 쓰는가 (CONTEXT)</span>
+          </div>
+          <h4 className="scope-title">돌발 셧다운 전조 감지 &amp; 공구 교체 시뮬레이션</h4>
+          <p className="scope-desc">
+            24시간 연속 가동 중 과열·과부하 전조를 실시간 감지하거나, 고정밀 제품 가공 투입 전 공구 누적 마모와 토크를 시뮬레이션하여 최적 정비 시점을 결정할 때 씁니다.
+          </p>
+        </div>
+
+        <div className="service-scope-box">
+          <div className="scope-box-header">
+            <Sliders size={15} className="scope-icon text-accent-green" />
+            <span className="scope-label">// 3. 무엇을 입력받는가 (INPUTS)</span>
+          </div>
+          <h4 className="scope-title">6대 센서 계측값 + 17종 물리·마진 피처</h4>
+          <p className="scope-desc">
+            제품 등급(L/M/H), 대기 온도, 공정 온도, 주축 회전수(RPM), 모터 토크(Nm), 공구 마모 시간(min)과 자동 연산되는 연속 임계 마진 피처(총 23개)를 입력받습니다.
+          </p>
+        </div>
+
+        <div className="service-scope-box">
+          <div className="scope-box-header">
+            <Target size={15} className="scope-icon text-accent-purple" />
+            <span className="scope-label">// 4. 무엇을 예측하는가 (PREDICTION)</span>
+          </div>
+          <h4 className="scope-title">고장 여부(0/1) &amp; 확률(%) &amp; 정비 권고안</h4>
+          <p className="scope-desc">
+            실시간 고장 발생 여부와 정밀 확률(0~100%), 4대 물리 고장(방열 HDF, 전력 PWF, 과부하 OSF, 마모 TWF) 위험 여부 및 3단계 현장 정비 권고 조치를 예측합니다.
+          </p>
+        </div>
+      </div>
 
       {/* Product Variants 3-Column Grid */}
       <div className="product-types-grid">
