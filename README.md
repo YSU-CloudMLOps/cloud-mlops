@@ -2,19 +2,56 @@
 
 본 저장소는 UCI Machine Learning Repository의 **AI4I 2020 Predictive Maintenance 데이터셋**을 기반으로 구축된 **엔드투엔드 설비 예지보전(Predictive Maintenance, PdM) MLOps 파이프라인**입니다.
 
-데이터 탐색(EDA), 도메인 물리 기반 전처리, 모델 학습 및 Optuna 하이퍼파라미터 튜닝, 계층형 아키텍처 기반의 **FastAPI 추론 서버**, 비전문가를 위한 **React 19 + Vite + TypeScript 웹 대시보드**, 그리고 AWS EC2 즉시 배포를 위한 **Docker Compose 멀티 컨테이너 오케스트레이션 및 `.env` 포트 제어 시스템**까지 프로덕션 수준으로 구현되어 있습니다.
+데이터 탐색(EDA), 도메인 물리 기반 전처리, 모델 학습 및 Optuna 하이퍼파라미터 튜닝, 계층형 아키텍처 기반의 **FastAPI 추론 서버**, 비전문가를 위한 **React 19 + Vite + TypeScript 웹 대시보드**, **AWS CloudWatch 실시간 추론·강화학습 로깅 및 S3 데이터 레이크 내보내기**, 그리고 **GitHub Actions 기반 AWS EC2 자동화 CI/CD 무중단 배포 시스템**까지 프로덕션 수준으로 구현되어 있습니다.
+
+---
+
+## 🧭 서비스 정의 및 현장 사용자 시나리오 현행화 (Service Definition & Persona)
+
+> 💡 **서비스 한 문장 정의**:  
+> **"CNC 밀링 설비의 6대 실시간 공정·센서 데이터(제품 품질 등급 L/M/H, 대기 온도, 공정 온도, 주축 회전수, 모터 토크, 공구 누적 마모 시간)와 물리 법칙 기반 파생 피처를 입력받아 설비의 고장 발생 여부 및 고장 확률을 실시간으로 예측하는 서비스로, 스마트팩토리 정밀 가공 라인의 현장 설비 보전 엔지니어(Maintenance Engineer)와 생산 라인 교대조 반장(Shift Supervisor)이 제조 현장 설비 관제 웹 대시보드 및 라인 순찰용 산업용 태블릿에서 돌발 설비 셧다운(Unplanned Downtime)과 공구 파손에 따른 불량품 발생을 사전에 예방하고 최적의 공구 교체·정비 시점을 의사결정하기 위해 사용한다."**
+
+### 0.1 4대 핵심 구성 요소 분해표
+
+| 구분 | 현행화 정의 내용 |
+| :--- | :--- |
+| **누가 (Who / Persona)** | 1. **스마트팩토리 정밀 가공 라인의 현장 설비 보전 엔지니어 (Maintenance Engineer)**<br>2. **생산 라인 교대조 반장 및 공정 품질 관리자 (Shift Supervisor & Process Quality Manager)** |
+| **어떤 상황에 쓰는가 (When / Context)** | • **상황 A (24시간 연속 가동 모니터링)**: 주축 과열(`HDF`), 과부하(`OSF`), 전력 이상(`PWF`) 등 돌발 설비 셧다운 전조를 사전 감지할 때<br>• **상황 B (배치 작업 투입 전)**: L/M/H 부품군 작업 지시서 배정 시 누적 공구 마모 시간(`Tool wear`)과 가공 조건을 시뮬레이션하여 최적 공구 교체 시점을 의사결정할 때<br>• **상황 C (경보 발생 및 정비 조치)**: 3단계 권고 정비 행동(`CONTINUE_NORMAL_OPERATION`, `PREVENTIVE_INSPECTION`, `IMMEDIATE_SHUTDOWN_MAINTENANCE`)을 확인하고 조치 후 피드백(`POST /feedback`)을 기록할 때 |
+| **무엇을 입력받는가 (Input Data)** | • **CNC 6대 실시간 공정·센서 데이터**: 제품 품질 등급(`Type`: L 60%, M 30%, H 10%), 대기 온도 `Air temperature [K]`, 공정 온도 `Process temperature [K]`, 주축 회전수 `Rotational speed [rpm]`, 모터 토크 `Torque [Nm]`, 공구 누적 마모 시간 `Tool wear [min]`<br>• **17종 물리·연속 임계 마진 파생 피처 (총 23개 피처)**: 온도차 $\Delta T$, 기계 전력 $P$, 과부하 스트레인, IEEE-754 방열 경계(`hdf_risk`), 전력 경계(`pwf_risk`), 과부하 경계(`osf_risk`), 연속 마진(`osf_margin`, `hdf_rpm_margin`, `pwf_margin`, `twf_wear_excess` 등) |
+| **무엇을 예측하는가 (Prediction Target)** | • **실시간 종합 설비 고장 발생 여부**: `machine_failure` (정상 `0` 또는 고장 `1`)<br>• **정밀 고장 발생 확률**: `failure_probability` (`0.0% ~ 100.0%` 비주얼 게이지)<br>• **4대 물리 고장 모드 감지**: 방열 고장(`HDF`), 전력 이상(`PWF`), 과부하 파손(`OSF`), 공구 마모(`TWF`) 위험 구간<br>• **현장 정비 권고 조치**: 정상 가동 지속 / 예방적 점검 / 즉각 셧다운 및 정비 조치 |
+
+### 0.2 실제 현장 사용자 페르소나 및 업무 흐름
+
+```
+[현장 설비 센서 텔레메트리] ──► [FastAPI 추론 엔진 (LightGBM v2)] ──► [React 19 관제 대시보드]
+                                         │                                      │
+                                         ▼                                      ▼
+                        [AWS CloudWatch Logs 적재]            [보전 엔지니어 / 교대조 반장]
+                                         │                         │ (현장 정비 / 공구 교체)
+                                         ▼                         ▼
+                        [Amazon S3 재학습 데이터레이크] ◄─── [POST /feedback (보상 기록)]
+```
+
+1. **페르소나 A: 현장 설비 보전 엔지니어 (Maintenance Engineer)**
+   - **담당 업무**: 수십 대의 CNC 밀링 머신의 냉각 계통, 모터 인버터, 주축 스핀들 베어링 상태 점검 및 예방 정비.
+   - **해결 가치**: 원시 센서 수치만으로는 계산하기 어려운 복합 물리 공식($\Delta T < 8.6\text{ K} \land \text{RPM} < 1,380$, $\text{Torque} \times \text{Speed}$ 전력 이탈)을 AI가 실시간 계산하여 **오탐(FP) 0건의 100% 신뢰성**으로 결함 징후를 조기 경보.
+2. **페르소나 B: 생산 라인 교대조 반장 (Shift Supervisor)**
+   - **담당 업무**: 제품 품질 등급(L 양산형 / M 중급형 / H 항공·의료 고정밀형)별 가공 작업 지시서 배정 및 불량률/납기 관리.
+   - **해결 가치**: 고정밀(H) 제품 가공 투입 전 공구 마모 한계(200~240분) 도달 여부를 사전 시뮬레이션하여 고가의 가공품 폐기(Scrap) 손실을 원천 방지.
 
 ---
 
 ## 📌 목차
-1. [데이터셋 개요 및 분석 (Dataset)](#1-데이터셋-개요-및-분석-dataset)
-2. [데이터 전처리 정책 및 피처 엔지니어링 (Preprocessing)](#2-데이터-전처리-정책-및-피처-엔지니어링-preprocessing)
-3. [모델 학습 및 하이퍼파라미터 튜닝 방법 (Training & Tuning)](#3-모델-학습-및-하이퍼파라미터-튜닝-방법-training--tuning)
-4. [모델 성능 평가 및 벤치마크 (Evaluation)](#4-모델-성능-평가-및-벤치마크-evaluation)
-5. [서버 아키텍처 상세 설명 (Server Architecture)](#5-서버-아키텍처-상세-설명-server-architecture)
-6. [Docker 컨테이너화 및 배포 환경 (Docker & EC2 Orchestration)](#6-docker-컨테이너화-및-배포-환경-docker--ec2-orchestration)
-7. [실행 및 배포 가이드 (Quickstart)](#7-실행-및-배포-가이드-quickstart)
-8. [관련 문서 및 리소스 링크](#8-관련-문서-및-리소스-링크)
+1. [서비스 정의 및 현장 사용자 시나리오 현행화 (Service Definition & Persona)](#-서비스-정의-및-현장-사용자-시나리오-현행화-service-definition--persona)
+2. [데이터셋 개요 및 분석 (Dataset)](#1-데이터셋-개요-및-분석-dataset)
+3. [데이터 전처리 정책 및 23개 피처 엔지니어링 (Preprocessing)](#2-데이터-전처리-정책-및-피처-엔지니어링-preprocessing)
+4. [모델 학습 및 하이퍼파라미터 튜닝 방법 (Training & Tuning)](#3-모델-학습-및-하이퍼파라미터-튜닝-방법-training--tuning)
+5. [모델 성능 평가 및 벤치마크 (Evaluation)](#4-모델-성능-평가-및-벤치마크-evaluation)
+6. [서버 아키텍처 및 CloudWatch/S3 MLOps 로깅 (Server Architecture)](#5-서버-아키텍처-상세-설명-server-architecture)
+7. [Docker 컨테이너화 및 배포 환경 (Docker & EC2 Orchestration)](#6-docker-컨테이너화-및-배포-환경-docker--ec2-orchestration)
+8. [GitHub Actions CI/CD 자동화 배포 파이프라인 (CI/CD Pipeline)](#7-github-actions-cicd-자동화-배포-파이프라인-cicd-pipeline)
+9. [실행 및 배포 가이드 (Quickstart)](#8-실행-및-배포-가이드-quickstart)
+10. [관련 문서 및 리소스 링크](#9-관련-문서-및-리소스-링크)
 
 ---
 
@@ -285,9 +322,53 @@ THRESHOLD=0.5
 
 ---
 
-## 7. 실행 및 배포 가이드 (Quickstart)
+## 7. GitHub Actions CI/CD 자동화 배포 파이프라인 (CI/CD Pipeline)
 
-### 7.1 Docker Compose를 통한 원클릭 실행 (추천)
+본 저장소는 지속적 통합(CI)과 지속적 배포(CD)를 완전 자동화한 **GitHub Actions 파이프라인([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml))**을 갖추고 있습니다.
+
+```
+[개발자 코드 Push (main / test 브랜치)]
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. CI 파이프라인 (Test & Build Verification Job)                 │
+│   ├─ Python 3.11 환경 구성 & API 의존성 캐싱/설치                 │
+│   ├─ FastAPI 12개 단위·통합 테스트 스위트 전건 검증 (unittest)    │
+│   ├─ Node.js 20 환경 구성 & React 19 번들 빌드 검증 (Vite)       │
+│   └─ Docker Compose 멀티 컨테이너 병렬 빌드 사전 검증           │
+└─────────────────────────────────────────────────────────────────┘
+                 │ (CI 100% 성공 시에만 CD 단계 진입)
+                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. CD 파이프라인 (AWS EC2 원격 무중단 배포 Job)                   │
+│   ├─ GitHub Repository Secrets (EC2_HOST, EC2_SSH_KEY) 검증    │
+│   ├─ SSH 보안 터널 접속 (appleboy/ssh-action)                    │
+│   ├─ 원격 저장소 최신 브랜치 Git Pull & Reset                   │
+│   └─ sudo ./scripts/deploy_ec2.sh 원터치 컨테이너 갱신 및 헬스체크│
+└─────────────────────────────────────────────────────────────────┘
+                 │
+                 ▼
+     [AWS EC2 프로덕션 서비스 자동 갱신 완료]
+```
+
+### 7.1 GitHub Repository Secrets 설정 안내 (1회 설정)
+저장소 **Settings > Secrets and variables > Actions**에서 아래 비밀값을 등록하면 모든 푸시마다 EC2 서버에 무인 자동 배포됩니다:
+
+| Secret 이름 | 필수 여부 | 권장 값 | 설명 |
+| :--- | :---: | :--- | :--- |
+| **`EC2_HOST`** | **필수** | `13.125.xxx.xxx` | AWS EC2 인스턴스의 퍼블릭 IP 또는 도메인 |
+| **`EC2_SSH_KEY`** | **필수** | `-----BEGIN RSA PRIVATE KEY----- ...` | EC2 접속용 프라이빗 키(`.pem`) 파일 내용 전문 |
+| **`EC2_USERNAME`** | 선택 | `ubuntu` (또는 `ec2-user`) | EC2 OS 접속 사용자 계정명 (기본값: `ubuntu`) |
+| **`EC2_PORT`** | 선택 | `22` | SSH 접속 포트 (기본값: `22`) |
+
+> [!NOTE]
+> Secrets가 아직 등록되지 않은 경우에도 CI 테스트(12개 백엔드 테스트 + 프론트엔드 빌드 + 도커 빌드)는 100% 정상 수행되며, 배포 단계는 Dry-Run 안내 로그를 남기고 안전하게 완료됩니다.
+
+---
+
+## 8. 실행 및 배포 가이드 (Quickstart)
+
+### 8.1 Docker Compose를 통한 원클릭 실행 (추천)
 호스트 포트는 [`.env`](.env) 파일에서 자유롭게 변경할 수 있습니다 (기본값: 프론트엔드 80, 백엔드 8000).
 
 ```bash
@@ -306,14 +387,14 @@ docker compose up -d --build
 - **Swagger API 문서**: `http://localhost:8000/docs` (또는 Nginx 프록시를 통해 `http://localhost/docs`)
 - **헬스체크**: `http://localhost:8000/health`
 
-### 7.2 AWS EC2 인스턴스 원터치 배포
+### 8.2 AWS EC2 인스턴스 원터치 배포
 ```bash
 # EC2 인스턴스 터미널에서 실행 (루트/sudo 권한 권장)
 sudo ./scripts/deploy_ec2.sh
 ```
 > 세부 보안 그룹 설정(포트 80, 8000 인바운드 규칙 등)은 [`notes/DOCKER_EC2_GUIDE.md`](notes/DOCKER_EC2_GUIDE.md)를 참조하세요.
 
-### 7.3 도커 운영 및 유지보수 명령어 치트시트
+### 8.3 도커 운영 및 유지보수 명령어 치트시트
 ```bash
 # 실행 중인 컨테이너 상태 및 헬스체크 확인
 docker compose ps
@@ -334,7 +415,7 @@ cp my_new_model.txt models/lightgbm_model.txt
 docker compose restart backend
 ```
 
-### 7.4 로컬 개발 환경 직접 실행
+### 8.4 로컬 개발 환경 직접 실행
 
 **FastAPI 백엔드:**
 ```bash
@@ -358,7 +439,7 @@ PYTHONPATH=. python -m unittest discover -s API/tests -v
 
 ---
 
-## 8. 관련 문서 및 리소스 링크
+## 9. 관련 문서 및 리소스 링크
 - **[9주차 서비스 정의 및 CloudWatch 재학습/강화학습 로깅·S3 내보내기 보고서 (notes/9주차.md)](notes/9주차.md)**: 팀 프로젝트 한 문장 정의(실제 사용자 페르소나), 모델·API 검증, CloudWatch 재학습/강화학습(MDP) 로깅 및 S3 내보내기 보고서
 - **[2차 모델 종합 개선 보고서 (notes/model_improvement_report.md)](notes/model_improvement_report.md)**: IEEE-754 부동소수점 오차 수정, 23개 마진 피처, Optuna 튜닝 및 오탐 0건(F1 0.9120) 달성 보고서
 - **[AWS EC2 배포 가이드 (notes/DOCKER_EC2_GUIDE.md)](notes/DOCKER_EC2_GUIDE.md)**: EC2 보안 그룹 설정, Docker 설치 및 컨테이너 관리 매뉴얼

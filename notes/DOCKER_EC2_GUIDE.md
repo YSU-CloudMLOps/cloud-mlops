@@ -182,3 +182,50 @@ docker compose down
 cp my_new_model.txt models/lightgbm_model.txt
 docker compose restart backend
 ```
+
+---
+
+## 7. GitHub Actions 기반 CI/CD 자동 배포 (Continuous Deployment)
+
+본 저장소는 코드 푸시 시 자동으로 테스트와 빌드를 수행하고, 설정된 AWS EC2 인스턴스로 즉시 원격 배포되는 **GitHub Actions CI/CD 파이프라인([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml))**을 갖추고 있습니다.
+
+### 7.1 파이프라인 아키텍처
+
+```
+[개발자 git push (main/test)]
+           │
+           ▼
+┌────────────────────────────────────────────────────────┐
+│ 1. CI (Test & Build Job - GitHub Hosted Runner)        │
+│   ├─ Python 3.11 환경 구성 & API 의존성 설치           │
+│   ├─ 백엔드 12개 단위/통합 테스트 스위트 검증 (unittest) │
+│   ├─ Node.js 20 환경 구성 & React 19 프론트엔드 빌드   │
+│   └─ Docker Compose 멀티 컨테이너 병렬 빌드 사전 검증  │
+└────────────────────────────────────────────────────────┘
+           │ (CI 검증 100% 통과 시)
+           ▼
+┌────────────────────────────────────────────────────────┐
+│ 2. CD (Deploy Job - SSH to AWS EC2)                   │
+│   ├─ GitHub Repository Secrets 확인                    │
+│   ├─ EC2 원격 서버 SSH 보안 접속                       │
+│   ├─ 최신 브랜치 코드 git pull / reset                │
+│   └─ deploy_ec2.sh 원터치 무중단 배포 스크립트 실행    │
+└────────────────────────────────────────────────────────┘
+           │
+           ▼
+ [AWS EC2 프로덕션 서비스 갱신 완료 (포트 80/8000)]
+```
+
+### 7.2 GitHub Repository Secrets 설정 가이드 (1회 설정)
+
+GitHub 저장소의 **Settings > Secrets and variables > Actions**에서 **New repository secret** 버튼을 눌러 다음 4개 항목을 등록합니다:
+
+| 시크릿 이름 (Secret Name) | 필수 여부 | 권장 값 / 예시 | 설명 |
+| :--- | :---: | :--- | :--- |
+| **`EC2_HOST`** | **필수** | `13.125.xxx.xxx` (또는 퍼블릭 DNS) | AWS EC2 인스턴스의 퍼블릭 IP 주소 |
+| **`EC2_SSH_KEY`** | **필수** | `-----BEGIN RSA PRIVATE KEY----- ...` | EC2 생성 시 다운로드받은 `.pem` 키 내용 전문 |
+| **`EC2_USERNAME`** | 선택 | `ubuntu` (또는 `ec2-user`) | EC2 OS 접속 사용자 계정명 (기본값: `ubuntu`) |
+| **`EC2_PORT`** | 선택 | `22` | SSH 접속 포트 (기본값: `22`) |
+
+> [!TIP]
+> **안전한 Dry-Run 폴백 지원**: Secrets가 아직 등록되지 않은 상태에서 Actions가 실행되더라도 빌드가 실패(Fail)하지 않고, CI 테스트를 100% 검증한 뒤 Secrets 설정 가이드를 친절하게 출력하도록 설계되어 있습니다. Secrets 등록 즉시 다음 푸시부터 무인 배포가 활성화됩니다.

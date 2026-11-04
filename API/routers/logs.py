@@ -73,3 +73,4 @@ def export_logs_to_s3(
     """Export the active CloudWatch Log Stream to Amazon S3 for offline retraining & RL."""
     cw_service = _get_cw_service(request)
     return cw_service.export_log_stream_to_s3(payload)
+

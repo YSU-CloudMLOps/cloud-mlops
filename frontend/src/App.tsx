@@ -140,47 +140,60 @@ export const App: React.FC = () => {
             {/* Model Architecture Info Card */}
             <div className="card model-info-card">
               <span className="eyebrow-mono">// ARCHITECTURE BENCHMARK</span>
-              <h3 className="info-card-title">Week 06 하이퍼파라미터 최적화 검증</h3>
+              <h3 className="info-card-title">v2 종합 모델 개선 &amp; 오탐 0건 검증</h3>
               <p className="info-card-desc">
-                Optuna 베이지안 최적화(TPE Sampler)와 5-Fold 계층화 교차 검증을 통해 최적화된 LightGBM 모델의 성능입니다.
+                IEEE-754 방열 경계 수정, 6종 연속 마진 피처 및 Optuna 5-Fold 계층화 OOF 앙상블로 최적화된 프로덕션 LightGBM v2 모델의 성능입니다.
               </p>
 
               <div className="stats-mini-grid">
                 <div className="stat-box">
                   <span className="stat-label">// ACCURACY</span>
-                  <span className="stat-number highlight">99.1%</span>
-                  <span className="stat-sub">1,982 / 2,000 정상 분류</span>
+                  <span className="stat-number highlight">99.45%</span>
+                  <span className="stat-sub">1,989 / 2,000 정상 분류</span>
                 </div>
                 <div className="stat-box">
                   <span className="stat-label">// PRECISION</span>
-                  <span className="stat-number">93.1%</span>
-                  <span className="stat-sub">오탐(FP) 4건으로 축소</span>
+                  <span className="stat-number">100.0%</span>
+                  <span className="stat-sub">오탐(FP) 0건 달성</span>
                 </div>
                 <div className="stat-box">
                   <span className="stat-label">// F1-SCORE</span>
-                  <span className="stat-number">0.857</span>
-                  <span className="stat-sub">최적 임계값 적용 시 0.859</span>
+                  <span className="stat-number">0.912</span>
+                  <span className="stat-sub">베이스라인 대비 +0.050 향상</span>
                 </div>
                 <div className="stat-box">
                   <span className="stat-label">// PR-AUC</span>
-                  <span className="stat-number">0.898</span>
-                  <span className="stat-sub">베이스라인 대비 +0.010 향상</span>
+                  <span className="stat-number">0.909</span>
+                  <span className="stat-sub">Brier Score 0.006 (확률 보정)</span>
                 </div>
               </div>
 
               <div className="info-features-list">
-                <span className="features-title">// ENGINEERED FEATURES (10):</span>
+                <span className="features-title">// ENGINEERED FEATURES (23):</span>
                 <div className="feature-tags">
                   <code>type_encoded</code>
-                  <code>air_temperature_k</code>
-                  <code>process_temperature_k</code>
-                  <code>rotational_speed_rpm</code>
-                  <code>torque_nm</code>
-                  <code>tool_wear_min</code>
-                  <code>temp_diff_k</code>
+                  <code>air_temp</code>
+                  <code>proc_temp</code>
+                  <code>rot_speed</code>
+                  <code>torque</code>
+                  <code>tool_wear</code>
+                  <code>temp_diff</code>
                   <code>power_w</code>
-                  <code>strain_min_nm</code>
-                  <code>tool_wear_critical</code>
+                  <code>strain</code>
+                  <code>wear_critical</code>
+                  <code>hdf_risk</code>
+                  <code>pwf_risk</code>
+                  <code>osf_risk</code>
+                  <code>twf_zone</code>
+                  <code>physical_risk_sum</code>
+                  <code>temp_ratio</code>
+                  <code>torque_rpm_ratio</code>
+                  <code>osf_margin</code>
+                  <code>osf_strain_ratio</code>
+                  <code>hdf_temp_margin</code>
+                  <code>hdf_rpm_margin</code>
+                  <code>pwf_margin</code>
+                  <code>twf_wear_excess</code>
                 </div>
               </div>
             </div>
