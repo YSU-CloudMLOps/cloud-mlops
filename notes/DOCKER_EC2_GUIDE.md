@@ -220,12 +220,12 @@ docker compose restart backend
 
 GitHub 저장소의 **Settings > Secrets and variables > Actions**에서 **New repository secret** 버튼을 눌러 다음 4개 항목을 등록합니다:
 
-| 시크릿 이름 (Secret Name) | 필수 여부 | 권장 값 / 예시 | 설명 |
-| :--- | :---: | :--- | :--- |
-| **`EC2_HOST`** | **필수** | `13.125.xxx.xxx` (또는 퍼블릭 DNS) | AWS EC2 인스턴스의 퍼블릭 IP 주소 |
-| **`EC2_SSH_KEY`** | **필수** | `-----BEGIN RSA PRIVATE KEY----- ...` | EC2 생성 시 다운로드받은 `.pem` 키 내용 전문 |
-| **`EC2_USERNAME`** | 선택 | `ubuntu` (또는 `ec2-user`) | EC2 OS 접속 사용자 계정명 (기본값: `ubuntu`) |
-| **`EC2_PORT`** | 선택 | `22` | SSH 접속 포트 (기본값: `22`) |
+| 시크릿 이름 (Secret Name) | 필수 여부  | 권장 값 / 예시                             | 설명                                |
+| :------------------- | :----: | :------------------------------------ | :-------------------------------- |
+| **`EC2_HOST`**       | **필수** | `13.125.xxx.xxx` (또는 퍼블릭 DNS)         | AWS EC2 인스턴스의 퍼블릭 IP 주소           |
+| **`EC2_SSH_KEY`**    | **필수** | `-----BEGIN RSA PRIVATE KEY----- ...` | EC2 생성 시 다운로드받은 `.pem` 키 내용 전문    |
+| **`EC2_USERNAME`**   |   선택   | `ubuntu` (또는 `ec2-user`)              | EC2 OS 접속 사용자 계정명 (기본값: `ubuntu`) |
+| **`EC2_PORT`**       |   선택   | `22`                                  | SSH 접속 포트 (기본값: `22`)             |
 
 > [!TIP]
 > **안전한 Dry-Run 폴백 지원**: Secrets가 아직 등록되지 않은 상태에서 Actions가 실행되더라도 빌드가 실패(Fail)하지 않고, CI 테스트를 100% 검증한 뒤 Secrets 설정 가이드를 친절하게 출력하도록 설계되어 있습니다. Secrets 등록 즉시 다음 푸시부터 무인 배포가 활성화됩니다.
