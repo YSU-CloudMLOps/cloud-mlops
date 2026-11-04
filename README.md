@@ -322,9 +322,13 @@ THRESHOLD=0.5
 
 ---
 
-## 7. GitHub Actions CI/CD 자동화 배포 파이프라인 (CI/CD Pipeline)
+## 7. GitHub Actions + AWS SSM 기반 CI/CD 자동화 배포 파이프라인 (Zero-SSH CI/CD)
 
-본 저장소는 지속적 통합(CI)과 지속적 배포(CD)를 완전 자동화한 **GitHub Actions 파이프라인([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml))**을 갖추고 있습니다.
+본 저장소는 지속적 통합(CI)과 **AWS Systems Manager (SSM) Run Command** 기반의 Zero-SSH 지속적 배포(CD)를 완전 자동화한 **GitHub Actions 파이프라인([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml))**을 갖추고 있습니다.
+
+- **IP 변경 무관 (IP-Independent)**: EC2를 중지 후 재시작하여 퍼블릭 IP가 바뀌더라도, AWS 내부 인스턴스 태그(`Name=mlops-server`) 및 SSM 온라인 상태를 기준으로 타겟을 동적 탐색하므로 배포가 절대 깨지지 않습니다.
+- **인스턴스 삭제/재생성 탄력성 (Resilient to Deletion)**: EC2가 삭제(Terminate)되었거나 중지된 상태일 때 파이프라인이 실패(Fail)하지 않고 안전하게 `Graceful Skip` 처리하며, 새 EC2 생성 시 Secrets 수정 없이 자동으로 새 서버에 배포합니다.
+- **최고 보안 (No Port 22 & No PEM Key)**: 인바운드 22번(SSH) 포트를 완전히 폐쇄할 수 있으며, SSH 비밀키 관리 부담이 없습니다.
 
 ```
 [개발자 코드 Push (main / test 브랜치)]
@@ -340,29 +344,31 @@ THRESHOLD=0.5
                  │ (CI 100% 성공 시에만 CD 단계 진입)
                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 2. CD 파이프라인 (AWS EC2 원격 무중단 배포 Job)                   │
-│   ├─ GitHub Repository Secrets (EC2_HOST, EC2_SSH_KEY) 검증    │
-│   ├─ SSH 보안 터널 접속 (appleboy/ssh-action)                    │
-│   ├─ 원격 저장소 최신 브랜치 Git Pull & Reset                   │
-│   └─ sudo ./scripts/deploy_ec2.sh 원터치 컨테이너 갱신 및 헬스체크│
+│ 2. CD 파이프라인 (AWS SSM Zero-SSH 원격 무중단 배포 Job)          │
+│   ├─ AWS 자격 증명 구성 (IAM Access Key 또는 OIDC Role)          │
+│   ├─ SSM Online & Running 상태인 EC2 인스턴스 동적 탐색          │
+│   │   (EC2 삭제/중지 시 에러 없이 Graceful Skip 안전 종료)       │
+│   ├─ aws ssm send-command로 배포 스크립트 암호화 하달            │
+│   └─ ./scripts/deploy_ec2.sh 실행 및 실시간 출력 폴링 검증       │
 └─────────────────────────────────────────────────────────────────┘
                  │
                  ▼
      [AWS EC2 프로덕션 서비스 자동 갱신 완료]
 ```
 
-### 7.1 GitHub Repository Secrets 설정 안내 (1회 설정)
-저장소 **Settings > Secrets and variables > Actions**에서 아래 비밀값을 등록하면 모든 푸시마다 EC2 서버에 무인 자동 배포됩니다:
+### 7.1 AWS SSM 및 GitHub Secrets 설정 안내 (1회 설정)
+1. **EC2 IAM 역할 연결**: AWS 콘솔에서 EC2 인스턴스에 **`AmazonSSMManagedInstanceCore`** 권한이 포함된 IAM 역할을 연결합니다. (Ubuntu/Amazon Linux에는 SSM Agent가 기본 내장되어 있습니다.)
+2. **GitHub Secrets 등록**: 저장소 **Settings > Secrets and variables > Actions**에서 아래 비밀값을 등록합니다:
 
 | Secret 이름 | 필수 여부 | 권장 값 | 설명 |
 | :--- | :---: | :--- | :--- |
-| **`EC2_HOST`** | **필수** | `13.125.xxx.xxx` | AWS EC2 인스턴스의 퍼블릭 IP 또는 도메인 |
-| **`EC2_SSH_KEY`** | **필수** | `-----BEGIN RSA PRIVATE KEY----- ...` | EC2 접속용 프라이빗 키(`.pem`) 파일 내용 전문 |
-| **`EC2_USERNAME`** | 선택 | `ubuntu` (또는 `ec2-user`) | EC2 OS 접속 사용자 계정명 (기본값: `ubuntu`) |
-| **`EC2_PORT`** | 선택 | `22` | SSH 접속 포트 (기본값: `22`) |
+| **`AWS_ACCESS_KEY_ID`** | **필수*** | `AKIAIOSFODNN7EXAMPLE` | SSM 및 EC2 조회 권한이 있는 IAM Access Key |
+| **`AWS_SECRET_ACCESS_KEY`** | **필수*** | `wJalrXUtnFEMI/K7MDENG/bPxRfiCY...` | IAM Secret Access Key (*OIDC 사용 시 `AWS_ROLE_ARN`으로 대체 가능) |
+| **`AWS_REGION`** | 선택 | `ap-northeast-2` | AWS 리전 (기본값: `ap-northeast-2`) |
+| **`EC2_TAG_VALUE`** | 선택 | `mlops-server` | 탐색할 EC2의 `Name` 태그 값 (기본값: `mlops-server`, 단일 EC2면 생략 가능) |
 
 > [!NOTE]
-> Secrets가 아직 등록되지 않은 경우에도 CI 테스트(12개 백엔드 테스트 + 프론트엔드 빌드 + 도커 빌드)는 100% 정상 수행되며, 배포 단계는 Dry-Run 안내 로그를 남기고 안전하게 완료됩니다.
+> **3단계 하이브리드 폴백 지원**: AWS SSM 시크릿(1순위) ➔ 기존 Legacy SSH 시크릿(2순위) ➔ Dry-Run 안내 모드(3순위) 순으로 자동 감지하므로, 시크릿 등록 전에도 CI/CD 파이프라인은 항상 녹색(Success)으로 안전하게 동작합니다.
 
 ---
 
