@@ -199,7 +199,7 @@ jobs:
       # ------------------------------------------------------------------------
       # Option 4: Self-Healing Auto-Recovery (Stopped Instance Wakeup + ASG + Launch Template)
       # ------------------------------------------------------------------------
-      - name: 🛡️ Self-Healing Infrastructure Recovery (Option 4: ASG + Launch Template)
+      - name: "🛡️ Self-Healing Infrastructure Recovery (Option 4: ASG + Launch Template)"
         id: self-healing
         if: startsWith(steps.detect-mode.outputs.mode, 'ssm-') && steps.discover-ec2.outputs.found == 'false'
         env:
