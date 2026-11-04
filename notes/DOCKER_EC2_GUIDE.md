@@ -181,6 +181,9 @@ docker compose down
 # ./models 폴더가 볼륨 마운트되어 있으므로 파일 교체 후 재시작만 하면 즉시 적용됩니다.
 cp my_new_model.txt models/lightgbm_model.txt
 docker compose restart backend
+
+# 7. 헬스체크 상세 진단 (컨테이너가 unhealthy 상태일 때 실패 원인 확인)
+docker inspect --format='{{json .State.Health}}' mlops-frontend | jq
 ```
 
 ---
