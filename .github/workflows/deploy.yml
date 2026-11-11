@@ -91,7 +91,7 @@ jobs:
       - name: 🔍 Detect Deployment Mode (AWS SSM vs Legacy SSH vs Dry-Run)
         id: detect-mode
         env:
-          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN || 'arn:aws:iam::093356173512:role/s2023100154-github-deploy-role' }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -118,7 +118,7 @@ jobs:
         if: steps.detect-mode.outputs.mode == 'ssm-oidc'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN || 'arn:aws:iam::093356173512:role/s2023100154-github-deploy-role' }}
           aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-2' }}
 
       - name: 🔑 Configure AWS Credentials (IAM Keys)
