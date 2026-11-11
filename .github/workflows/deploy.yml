@@ -219,6 +219,12 @@ jobs:
             --filters "Name=tag:${TARGET_TAG_KEY},Values=${TARGET_TAG_VALUE}" "Name=instance-state-name,Values=stopped" \
             --query "Reservations[0].Instances[0].InstanceId" --output text 2>/dev/null || echo "None")
 
+          if [ "$STOPPED_ID" = "None" ] || [ -z "$STOPPED_ID" ]; then
+            STOPPED_ID=$(aws ec2 describe-instances \
+              --filters "Name=instance-state-name,Values=stopped" \
+              --query "Reservations[0].Instances[0].InstanceId" --output text 2>/dev/null || echo "None")
+          fi
+
           if [ "$STOPPED_ID" != "None" ] && [ -n "$STOPPED_ID" ]; then
             echo "🔄 Found stopped EC2 instance ($STOPPED_ID). Starting it automatically..."
             aws ec2 start-instances --instance-ids "$STOPPED_ID" >/dev/null 2>&1 || true
@@ -240,6 +246,12 @@ jobs:
             CANDIDATES=$(aws ec2 describe-instances \
               --filters "Name=tag:${TARGET_TAG_KEY},Values=${TARGET_TAG_VALUE}" "Name=instance-state-name,Values=running" \
               --query "Reservations[].Instances[].InstanceId" --output text 2>/dev/null || echo "")
+
+            if [ -z "$CANDIDATES" ]; then
+              CANDIDATES=$(aws ec2 describe-instances \
+                --filters "Name=instance-state-name,Values=running" \
+                --query "Reservations[].Instances[].InstanceId" --output text 2>/dev/null || echo "")
+            fi
 
             for CID in $CANDIDATES; do
               ONLINE=$(aws ssm describe-instance-information \
